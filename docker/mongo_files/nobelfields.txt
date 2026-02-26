@@ -1,6 +1,0 @@
-id
-firstname
-surname
-born
-died
-borncountry
