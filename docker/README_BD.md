@@ -1,34 +1,28 @@
+Assumindo que:
+
+* Cada colega já tem o seu próprio Docker configurado
+* Só precisa de colocar o `maze_local.sql` dentro da pasta `mysql_files`
+* Criar manualmente a base de dados
+* Importar o ficheiro via **phpMyAdmin**
+---
+
 # Distributed Maze System
 
-## 🐳 Docker Setup & Database Initialization
+## 🐳 Docker Setup & Database Import
 
-Este guia explica como configurar o ambiente Docker e criar a base de dados **`maze_local`** após fazer `git pull`.
-
----
-
-## ⚠️ Importante Antes de Começar
-
-Se já tiveres containers Docker a correr de outra localização do projeto, deves pará-los primeiro.
-
-Vai para a pasta antiga onde tinhas o Docker e executa:
-
-```bash
-docker-compose down
-```
-
-Isto evita conflitos de portas e containers duplicados.
+Este guia explica como configurar o ambiente Docker e importar a base de dados **`maze_local`** utilizando o ficheiro `maze_local.sql` disponível no GitHub.
 
 ---
 
-## 🚀 1️⃣ Entrar na pasta Docker deste projeto
+## 🚀 2️⃣ Entrar na tua pasta Docker
 
 ```bash
-cd docker
+cd teulocaldodocker
 ```
 
 ---
 
-## 🐳 2️⃣ Iniciar os Containers
+## 🐳 3️⃣ Iniciar os Containers
 
 ```bash
 docker-compose up -d
@@ -39,11 +33,10 @@ Isto vai iniciar:
 * 🐬 **MySQL**
 * 🍃 **MongoDB**
 * 🌐 **phpMyAdmin**
-* 🐘 **PHP** (se aplicável)
 
 ---
 
-## 🔍 3️⃣ Verificar se está tudo a correr
+## 🔍 4️⃣ Verificar se está tudo a correr
 
 ```bash
 docker ps
@@ -63,25 +56,34 @@ Verifica também a porta do phpMyAdmin, algo como:
 
 ---
 
-## 🧠 4️⃣ Criar a Base de Dados
+## 🗄️ 5️⃣ Criar a Base de Dados no MySQL
 
-Executa:
+Entrar no MySQL dentro do container:
 
 ```bash
-./init_db.sh
+docker exec -it mysql mysql -u root -p
 ```
 
-Se tudo correr bem, vais ver:
+(Se pedir password, usar `root`)
 
+Depois executar:
+
+```sql
+CREATE DATABASE maze_local;
+USE maze_local;
 ```
-✅ Base de dados criada/importada com sucesso.
+
+Sair com:
+
+```sql
+exit;
 ```
 
 ---
 
-## 🌐 5️⃣ Aceder ao phpMyAdmin
+## 🌐 6️⃣ Importar o ficheiro SQL via phpMyAdmin
 
-Abre o browser e vai para:
+Abrir no browser:
 
 ```
 http://localhost:9001
@@ -91,7 +93,7 @@ http://localhost:9001
 
 ---
 
-## 🔑 Login no phpMyAdmin
+### 🔑 Login
 
 * **Servidor:** `mysql`
 * **Utilizador:** `root`
@@ -99,12 +101,18 @@ http://localhost:9001
 
 ---
 
-## 🗄️ Verificar a Base de Dados
+### 📥 Importar o ficheiro
 
-Depois de entrar:
+1. Clicar em **`maze_local`**
+2. Ir ao separador **Import**
+3. Selecionar o ficheiro `maze_local.sql` (colocado no projeto na pasta /docker/mysql_files/)
+4. Clicar em **Go**
 
-1. Clica em **`maze_local`**
-2. Verifica se existem as tabelas:
+---
+
+## ✅ Verificar a Importação
+
+Depois da importação, confirmar que existem as seguintes tabelas:
 
 * **Simulacao**
 * **Utilizador**
@@ -114,30 +122,18 @@ Depois de entrar:
 * **Mensagens**
 * **OcupacaoLabirinto**
 
-Se aparecerem, estás totalmente sincronizado com o projeto ✅
+Se aparecerem, a base de dados foi importada com sucesso 🎉
 
 ---
 
-## 🔄 Reinicializar a Base de Dados
-
-Sempre que necessário:
+## 🔄 Caso seja necessário reiniciar tudo
 
 ```bash
-./init_db.sh
+docker-compose down
+docker-compose up -d
 ```
 
----
-
-## ⚠️ Notas Importantes
-
-As seguintes pastas **não devem ser versionadas**:
-
-```
-docker/mysql_data/
-docker/mongo_data/
-```
-
-Estas contêm dados locais do Docker e não devem ser partilhadas no Git.
+Depois repetir o processo de importação.
 
 ---
 
@@ -146,16 +142,17 @@ Estas contêm dados locais do Docker e não devem ser partilhadas no Git.
 ```bash
 git pull
 cd docker
-docker-compose down   # caso existam containers ativos
+docker-compose down
 docker-compose up -d
-./init_db.sh
+docker exec -it mysql mysql -u root -p
 ```
 
-Depois abre:
+Depois no MySQL:
 
-```
-http://localhost:9001
+```sql
+CREATE DATABASE maze_local;
+USE maze_local;
 ```
 
----
+Depois importar o `maze_local.sql` no phpMyAdmin.
 
