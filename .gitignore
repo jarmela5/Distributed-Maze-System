@@ -4,3 +4,10 @@ docker/mongo_data/
 
 # Logs
 *.log
+
+# Python
+__pycache__/
+
+# Sistema
+.DS_Store
+.vscode
