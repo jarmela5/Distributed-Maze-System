@@ -1,0 +1,6 @@
+# Docker DB data 
+docker/mysql_data/
+docker/mongo_data/
+
+# Logs
+*.log
