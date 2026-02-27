@@ -4,6 +4,8 @@ class StateEngine:
     self.rooms = {}
     self.marsami_positions = {}
     self.marsami_types = {}
+    self.temperature = {}
+    self.sound = {}
 
   def _ensure_room_exists(self, room_id):
     if room_id not in self.rooms:
@@ -62,6 +64,12 @@ class StateEngine:
     if origin == 0 and destiny == 0 and status == 2:
       # não altera sala
       return
+    
+  def update_temperature(self, timestamp, temp):
+    self.temperature[timestamp] = temp
+
+  def update_sound(self, timestamp, sound):
+    self.sound[timestamp] = sound
 
 
 
