@@ -1,100 +1,114 @@
 from core.state_engine import StateEngine
 import json
 from datetime import datetime
+import re
 
 class EventProcessor:
 
   def __init__(self):
-    self.StateEngine = StateEngine()
+      self.state_engine = StateEngine()
 
   def process(self, topic, payload):
     try:
-      data = json.load(payload)
-    except json.JSONDecodeError:
-      print("Invalid Json. File Ignored.")
+      data = json.loads(payload)
+    except Exception:
+      print("[ERROR] Invalid JSON. Ignored.")
       return
-    
+
+    data = self._normalize_keys(data)
+
     if "mazemov" in topic:
-      self._handle_movement(data)
+        self._handle_movement(data)
     elif "mazetemp" in topic:
-      self._handle_temperature(data)
+        self._handle_temperature(data)
     elif "mazesound" in topic:
-      self._handle_sound(data)
+        self._handle_sound(data)
     else:
-      print("Unknow topic. Ignored")
+        print("[WARNING] Unknown topic. Ignored.")
 
-    
-  def _handle_movement(self, data):
-    required_fields = ["Marsami", "RoomOrigin", "RoomDestiny", "Status"]
 
-    if not all(field in data for field in required_fields):
-      print("Movement missing fields")
-      return
+  def _normalize_keys(self, data):
+    normalized = {}
+    for key, value in data.items():
+      clean_key = key.lower()
+      clean_key = re.sub(r'[^a-z]', '', clean_key)
       
-    marsami = data["Marsami"]
-    origin = data["RoomOrigin"]
-    destiny = data["RoomDestiny"]
-    status = data["Status"]
+      normalized[clean_key] = value
+
+    return normalized
+
+
+  def _handle_movement(self, data):
+    required_fields = ["marsami", "roomorigin", "roomdestiny", "status"]
+    if not all(field in data for field in required_fields):
+      print("[MOVEMENT] Missing required fields.")
+      return
+
+    marsami = data["marsami"]
+    origin = data["roomorigin"]
+    destiny = data["roomdestiny"]
+    status = data["status"]
 
     if not isinstance(marsami, int):
-      return
+       return
     if not isinstance(origin, int) or not isinstance(destiny, int):
-      return
+       return
     if status not in [1, 2]:
-      return
-
+       return
     if origin < 0 or destiny < 0:
-      return
+       return
 
-    self.StateEngine.process_movement(marsami_id=marsami, origin=origin, destiny=destiny, status=status)
+
+    self.state_engine.process_movement(
+        marsami_id=marsami,
+        origin=origin,
+        destiny=destiny,
+        status=status
+    )
+
 
   def _handle_temperature(self, data):
-    if "Temperature" not in data:
+    if "temperature" not in data:
       return
-    
-    value = data["Temperature"]
-    timestamp = data.get("Hour")
+
+    value = data["temperature"]
+    timestamp = data.get("hour")
 
     if not isinstance(value, (int, float)):
       return
-    
-    if value < -20 or value > 100:
-      print("Temperature out of range")
-      return
-    
+
     parsed_time = self._parse_timestamp(timestamp)
 
-    self.StateEngine.update_temperature(timestamp=parsed_time, temp=value)
+    self.state_engine.update_temperature(
+       timestamp=parsed_time,
+       temp=value
+    )
+
 
   def _handle_sound(self, data):
-
-    if "Sound" not in data:
+    if "sound" not in data:
       return
 
-    value = data["Sound"]
-    timestamp = data.get("Hour")
+    value = data["sound"]
+    timestamp = data.get("hour")
 
     if not isinstance(value, (int, float)):
       return
 
-    if value < 0 or value > 150:
-      print("Sound out of range.")
-      return
-
     parsed_time = self._parse_timestamp(timestamp)
 
-    self.StateEngine.update_sound(value, parsed_time)
+    self.state_engine.update_sound(
+       timestamp=parsed_time,
+        sound=value
+    )
 
-  
+
   def _parse_timestamp(self, timestamp):
-
     if not timestamp:
       return datetime.now()
 
     try:
       return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
     except Exception:
-      print("Invalid timestamp. Using system time.")
+      print("[WARNING] Invalid timestamp. Using system time.")
       return datetime.now()
-
-
