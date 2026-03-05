@@ -86,7 +86,7 @@ class StateEngine:
     event = {
       "timestamp": timestamp,
       "value": temp,
-      "is_outlier": False,
+      "is_invalid": False,
       "reason": None
     }
 
@@ -99,7 +99,7 @@ class StateEngine:
     delta = abs(temp - self.last_temp_value)
 
     if delta > self.MAX_TEMP_DELTA:
-      event["is_outlier"] = True
+      event["is_invalid"] = True
       event["reason"] = "Delta too large"
       return event
 
@@ -111,7 +111,7 @@ class StateEngine:
     event = {
       "timestamp": timestamp,
       "value": sound,
-      "is_outlier": False,
+      "is_invalid": False,
       "reason": None
     }
 
@@ -124,7 +124,7 @@ class StateEngine:
     delta = abs(sound - self.last_sound_value)
 
     if delta > self.MAX_SOUND_DELTA:
-      event["is_outlier"] = True
+      event["is_invalid"] = True
       event["reason"] = "Delta too large"
       return event
 
