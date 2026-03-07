@@ -2,6 +2,7 @@ from core.config_manager import ConfigManager
 from core.state_engine import StateEngine
 from core.event_processor import EventProcessor
 from mqtt.mqtt_listener import MQTTListener
+from persistance.mongo_repository import MongoRepository
 
 
 def main():
@@ -23,7 +24,9 @@ def main():
         outlier_config["sound_outlier"]
     )
 
-    event_processor = EventProcessor(state_engine)
+    mongo_repo = MongoRepository()
+
+    event_processor = EventProcessor(state_engine, mongo_repo)
 
     mqtt_listener = MQTTListener(
         broker,

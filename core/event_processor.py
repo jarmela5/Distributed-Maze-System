@@ -1,12 +1,15 @@
 from core.state_engine import StateEngine
+from persistance.mongo_repository import MongoRepository
 import json
 from datetime import datetime
 import re
 
+
 class EventProcessor:
 
-  def __init__(self, stateEngine:StateEngine):
+  def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository):
       self.state_engine = stateEngine
+      self.mongo_repo = mongo_repo
 
   def process(self, topic, payload):
     try:
@@ -26,17 +29,13 @@ class EventProcessor:
     else:
         print("[WARNING] Unknown topic. Ignored.")
 
-
   def _normalize_keys(self, data):
     normalized = {}
     for key, value in data.items():
       clean_key = key.lower()
       clean_key = re.sub(r'[^a-z]', '', clean_key)
-      
       normalized[clean_key] = value
-
     return normalized
-
 
   def _handle_movement(self, data):
     required_fields = ["marsami", "roomorigin", "roomdestiny", "status"]
@@ -56,14 +55,15 @@ class EventProcessor:
     if status not in [0, 1, 2]:
        return
 
-
-    self.state_engine.process_movement(
+    event = self.state_engine.process_movement(
         marsami_id=marsami,
         origin=origin,
         destiny=destiny,
         status=status
     )
 
+    if event:
+        self.mongo_repo.save_movement(event)
 
   def _handle_temperature(self, data):
     if "temperature" not in data:
@@ -77,11 +77,12 @@ class EventProcessor:
 
     parsed_time = self._parse_timestamp(timestamp)
 
-    self.state_engine.update_temperature(
+    event = self.state_engine.update_temperature(
        timestamp=parsed_time,
        temp=value
     )
 
+    self.mongo_repo.save_temperature(event)
 
   def _handle_sound(self, data):
     if "sound" not in data:
@@ -95,11 +96,12 @@ class EventProcessor:
 
     parsed_time = self._parse_timestamp(timestamp)
 
-    self.state_engine.update_sound(
+    event = self.state_engine.update_sound(
        timestamp=parsed_time,
-        sound=value
+       sound=value
     )
 
+    self.mongo_repo.save_sound(event)
 
   def _parse_timestamp(self, timestamp):
     if not timestamp:
