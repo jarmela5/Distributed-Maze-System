@@ -1,69 +1,73 @@
 import paho.mqtt.client as mqtt
 import time
-import sys
 
-# =============================
-# CONFIGURAÇÃO
-# =============================
 
-BROKER = "broker.emqx.io"
-PORT = 1883
-PLAYER_ID = 6
+class MQTTListener:
 
-TOPICS = [
-    f"pisid_mazemov_{PLAYER_ID}",
-    f"pisid_mazetemp_{PLAYER_ID}",
-    f"pisid_mazesound_{PLAYER_ID}"
-]
+    def __init__(self, broker, port, player_id, event_processor):
 
-# =============================
-# CALLBACKS
-# =============================
+        self.broker = broker
+        self.port = port
+        self.player_id = player_id
+        self.event_processor = event_processor
 
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        print("[CONNECTED] Successfully connected to broker.")
-        for topic in TOPICS:
-            client.subscribe(topic)
-            print(f"[SUBSCRIBED] {topic}")
-    else:
-        print(f"[ERROR] Connection failed with code {rc}")
+        self.topics = [
+            f"pisid_mazemov_{player_id}",
+            f"pisid_mazetemp_{player_id}",
+            f"pisid_mazesound_{player_id}"
+        ]
 
-def on_message(client, userdata, msg):
-    print(f"\n[RECEIVED]")
-    print(f"Topic: {msg.topic}")
-    print(f"Payload: {msg.payload.decode()}")
+        self.client = mqtt.Client()
 
-def on_disconnect(client, userdata, rc):
-    print("[DISCONNECTED] Attempting to reconnect...")
-    while True:
-        try:
-            client.reconnect()
-            print("[RECONNECTED]")
-            break
-        except:
-            print("Reconnect failed. Retrying in 5 seconds...")
-            time.sleep(5)
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+        self.client.on_disconnect = self.on_disconnect
 
-# =============================
-# MAIN
-# =============================
 
-def main():
-    client = mqtt.Client()
+    def on_connect(self, client, userdata, flags, rc):
 
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.on_disconnect = on_disconnect
+        if rc == 0:
 
-    try:
-        print("Connecting to broker...")
-        client.connect(BROKER, PORT, 60)
-    except Exception as e:
-        print(f"Connection error: {e}")
-        sys.exit(1)
+            print("[CONNECTED] MQTT")
 
-    client.loop_forever()
+            for topic in self.topics:
+                client.subscribe(topic)
+                print("[SUBSCRIBED]", topic)
 
-if __name__ == "__main__":
-    main()
+        else:
+            print("[ERROR] MQTT connection failed", rc)
+
+
+    def on_message(self, client, userdata, msg):
+
+        payload = msg.payload.decode()
+
+        print("\n[RECEIVED]")
+        print("Topic:", msg.topic)
+        print("Payload:", payload)
+
+        self.event_processor.process(msg.topic, payload)
+
+
+    def on_disconnect(self, client, userdata, rc):
+
+        print("[DISCONNECTED] Reconnecting...")
+
+        while True:
+            try:
+                client.reconnect()
+                print("[RECONNECTED]")
+                break
+
+            except:
+                print("Retry in 5 seconds")
+                time.sleep(5)
+
+
+    def start(self):
+
+        print("Connecting to broker:", self.broker)
+
+        self.client.connect(self.broker, self.port, 60)
+
+        self.client.loop_forever()

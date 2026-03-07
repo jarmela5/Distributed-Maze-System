@@ -5,8 +5,8 @@ import re
 
 class EventProcessor:
 
-  def __init__(self):
-      self.state_engine = StateEngine()
+  def __init__(self, stateEngine:StateEngine):
+      self.state_engine = stateEngine
 
   def process(self, topic, payload):
     try:
@@ -53,9 +53,7 @@ class EventProcessor:
        return
     if not isinstance(origin, int) or not isinstance(destiny, int):
        return
-    if status not in [1, 2]:
-       return
-    if origin < 0 or destiny < 0:
+    if status not in [0, 1, 2]:
        return
 
 
