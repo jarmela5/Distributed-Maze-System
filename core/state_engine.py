@@ -1,6 +1,7 @@
 class StateEngine:
 
-  def __init__(self):
+  def __init__(self, maze_graph, temp_outlier, sound_outlier):
+    
     self.rooms = {}
     self.marsami_positions = {}
     self.marsami_types = {}
@@ -11,12 +12,15 @@ class StateEngine:
     self.last_temp_value = None
     self.last_sound_value = None
 
-    self.MAX_TEMP_DELTA = 6
-    self.MAX_SOUND_DELTA = 20
+    self.MAX_TEMP_DELTA = temp_outlier
+    self.MAX_SOUND_DELTA = sound_outlier
+    self.room_graph = maze_graph
+
 
   def _ensure_room_exists(self, room_id):
     if room_id not in self.rooms:
       self.rooms[room_id] = {"total": 0, "odd": 0, "even": 0}
+
 
   def _get_type(self, marsami_id):
     if marsami_id not in self.marsami_types:
@@ -38,14 +42,16 @@ class StateEngine:
     }
 
     if origin == 0 and destiny != 0:
+
       self._ensure_room_exists(destiny)
 
       self.rooms[destiny]["total"] += 1
       self.rooms[destiny][marsami_type] += 1
+
       self.marsami_positions[marsami_id] = destiny
 
       return movement_event
-    
+
     if origin != 0 and destiny != 0:
 
       if marsami_id not in self.marsami_positions:
@@ -60,10 +66,15 @@ class StateEngine:
         movement_event["reason"] = "Origin mismatch"
         return movement_event
 
-      # Ainda não temos grafo → não validamos ligações
-      # Quando tiveres o grafo:
-      # if destiny not in self.room_graph[origin]:
-      #     marcar como inválido
+      if origin not in self.room_graph:
+        movement_event["is_invalid"] = True
+        movement_event["reason"] = "Origin room not in graph"
+        return movement_event
+
+      if destiny not in self.room_graph[origin]:
+        movement_event["is_invalid"] = True
+        movement_event["reason"] = "Invalid corridor"
+        return movement_event
 
       self._ensure_room_exists(origin)
       self._ensure_room_exists(destiny)
@@ -80,13 +91,14 @@ class StateEngine:
 
     if origin == 0 and destiny == 0 and status == 2:
       return movement_event
-    
+
+
   def update_temperature(self, timestamp, temp):
 
     event = {
       "timestamp": timestamp,
       "value": temp,
-      "is_outlier": False,
+      "is_invalid": False,
       "reason": None
     }
 
@@ -99,19 +111,20 @@ class StateEngine:
     delta = abs(temp - self.last_temp_value)
 
     if delta > self.MAX_TEMP_DELTA:
-      event["is_outlier"] = True
-      event["reason"] = "Delta too large"
+      event["is_invalid"] = True
+      event["reason"] = "Temperature spike"
       return event
 
     self.last_temp_value = temp
     return event
+
 
   def update_sound(self, timestamp, sound):
 
     event = {
       "timestamp": timestamp,
       "value": sound,
-      "is_outlier": False,
+      "is_invalid": False,
       "reason": None
     }
 
@@ -124,8 +137,8 @@ class StateEngine:
     delta = abs(sound - self.last_sound_value)
 
     if delta > self.MAX_SOUND_DELTA:
-      event["is_outlier"] = True
-      event["reason"] = "Delta too large"
+      event["is_invalid"] = True
+      event["reason"] = "Sound spike"
       return event
 
     self.last_sound_value = sound
