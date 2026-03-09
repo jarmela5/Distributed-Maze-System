@@ -1,0 +1,31 @@
+# Configuração do Site
+
+## 1. Copiar os ficheiros do site
+
+Coloque a pasta `site/` dentro da diretoria `/var/www/html` no container **PHP-1** do Docker.
+
+A estrutura final deverá ficar:
+
+```
+/var/www/html/site/
+```
+
+
+## 2. Aceder ao site
+
+Abra o navegador e aceda ao seguinte endereço:
+
+```
+http://localhost:9000/site/login.html
+```
+
+## 3. Login
+
+* Introduza as credenciais na página de login.
+* O sistema verifica se o utilizador existe na base de dados.
+* Apenas utilizadores presentes na base de dados serão redirecionados para a página correta.
+
+## Notas
+
+* Certifique-se de que os containers Docker estão em execução.
+* Confirme que a base de dados está configurada e acessível pelo container PHP.
