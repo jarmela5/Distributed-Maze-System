@@ -3,6 +3,7 @@ session_start();
 
 
 
+
 $conn = new mysqli("mysql", "root", "root", "maze_local");
 
 $stmt = $conn->prepare("SELECT * FROM Utilizador WHERE Email = ?");
@@ -10,6 +11,7 @@ $stmt->bind_param("s", $_SESSION['email']);
 $stmt->execute();
 $result = $stmt->get_result();
 $user = $result->fetch_assoc();
+
 
 $conn->close();
 ?>
