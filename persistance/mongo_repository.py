@@ -17,36 +17,54 @@ class MongoRepository:
         print("[MongoDB] MongoRepository connected to", db_name)
 
     def _create_indexes(self):
-        self.temperature_events.create_index("timestamp")
+        self.temperature_events.create_index("seq")       # ordenação por chegada
         self.temperature_events.create_index("player")
-        self.sound_events.create_index("timestamp")
+        self.temperature_events.create_index("migrated")
+        self.sound_events.create_index("seq")             # ordenação por chegada
         self.sound_events.create_index("player")
-        self.movement_events.create_index("timestamp")
+        self.sound_events.create_index("migrated")
+        self.movement_events.create_index("seq")          # ordenação por chegada
         self.movement_events.create_index("player")
         self.movement_events.create_index("marsami_id")
+        self.movement_events.create_index("migrated")
+
+    def _next_seq(self):
+        """Contador atómico global — garante ordem real de chegada das mensagens."""
+        result = self.db["counters"].find_one_and_update(
+            {"_id": "seq"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=pymongo.ReturnDocument.AFTER
+        )
+        return result["seq"]
 
     def save_temperature(self, event: dict):
         doc = {
+            "seq":        self._next_seq(),
             "player":     event.get("player"),
             "timestamp":  event.get("timestamp", datetime.now()),
             "value":      event.get("value"),
             "is_outlier": event.get("is_invalid", False),
             "reason":     event.get("reason", None),
+            "migrated":   False,
         }
         self.temperature_events.insert_one(doc)
 
     def save_sound(self, event: dict):
         doc = {
+            "seq":        self._next_seq(),
             "player":     event.get("player"),
             "timestamp":  event.get("timestamp", datetime.now()),
             "value":      event.get("value"),
             "is_outlier": event.get("is_invalid", False),
             "reason":     event.get("reason", None),
+            "migrated":   False,
         }
         self.sound_events.insert_one(doc)
 
     def save_movement(self, event: dict):
         doc = {
+            "seq":        self._next_seq(),
             "player":     event.get("player"),
             "marsami_id": event.get("marsami_id"),
             "origin":     event.get("origin"),
@@ -55,5 +73,36 @@ class MongoRepository:
             "is_invalid": event.get("is_invalid", False),
             "reason":     event.get("reason", None),
             "timestamp":  event.get("timestamp", datetime.now()),
+            "migrated":   False,
         }
         self.movement_events.insert_one(doc)
+
+    # ─── Métodos de suporte à migração ──────────────────────────
+
+    def get_unmigrated(self, collection_name: str, batch_size=100):
+        """Devolve documentos ainda não migrados, ordenados por ordem de chegada."""
+        collection = self.db[collection_name]
+        return list(
+            collection.find({"migrated": False})
+            .sort("seq", pymongo.ASCENDING)
+            .limit(batch_size)
+        )
+
+    def mark_as_migrated(self, collection_name: str, doc_id):
+        """Marca um documento como migrado APÓS confirmação do insert no MySQL."""
+        collection = self.db[collection_name]
+        collection.update_one({"_id": doc_id}, {"$set": {"migrated": True}})
+
+    def reset_migration(self, collection_name: str = None):
+        """
+        Reinicializa o processo de migração (chamado pelo administrador).
+        Se collection_name for None, repõe todas as coleções.
+        """
+        collections = (
+            [self.db[collection_name]]
+            if collection_name
+            else [self.temperature_events, self.sound_events, self.movement_events]
+        )
+        for col in collections:
+            result = col.update_many({}, {"$set": {"migrated": False}})
+            print(f"[RESET] {col.name}: {result.modified_count} documentos repostos")

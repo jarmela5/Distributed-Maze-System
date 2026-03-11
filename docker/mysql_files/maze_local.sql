@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql
--- Tempo de geração: 26-Fev-2026 às 10:19
+-- Tempo de geração: 10-Mar-2026 às 23:44
 -- Versão do servidor: 8.0.45
 -- versão do PHP: 8.3.30
 
@@ -24,6 +24,16 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
+-- Estrutura da tabela `Alertas`
+--
+
+CREATE TABLE `Alertas` (
+  `ID` bigint NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Estrutura da tabela `MedicoesPassagens`
 --
 
@@ -33,7 +43,8 @@ CREATE TABLE `MedicoesPassagens` (
   `SalaOrigem` int DEFAULT NULL,
   `SalaDestino` int DEFAULT NULL,
   `Marsami` int DEFAULT NULL,
-  `Status` int DEFAULT NULL
+  `Status` int DEFAULT NULL,
+  `is_valid` tinyint(1) NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -88,7 +99,8 @@ CREATE TABLE `Simulacao` (
 CREATE TABLE `Som` (
   `IDSom` int NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
-  `Som` varchar(12) DEFAULT NULL
+  `Som` varchar(12) DEFAULT NULL,
+  `is_valid` tinyint(1) NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -100,7 +112,8 @@ CREATE TABLE `Som` (
 CREATE TABLE `Temperatura` (
   `IDTemperatura` int NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
-  `Temperatura` varchar(12) DEFAULT NULL
+  `Temperatura` varchar(12) DEFAULT NULL,
+  `is_valid` tinyint(1) NOT NULL DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -113,7 +126,7 @@ CREATE TABLE `Utilizador` (
   `IDUtilizador` int NOT NULL,
   `Nome` varchar(100) NOT NULL,
   `Telemovel` varchar(12) DEFAULT NULL,
-  `Tipo` varchar(3) DEFAULT NULL,
+  `Tipo` varchar(10) DEFAULT NULL,
   `Email` varchar(50) DEFAULT NULL,
   `DataNascimento` date DEFAULT NULL,
   `Equipa` int NOT NULL
@@ -122,6 +135,12 @@ CREATE TABLE `Utilizador` (
 --
 -- Índices para tabelas despejadas
 --
+
+--
+-- Índices para tabela `Alertas`
+--
+ALTER TABLE `Alertas`
+  ADD PRIMARY KEY (`ID`);
 
 --
 -- Índices para tabela `MedicoesPassagens`
@@ -208,6 +227,12 @@ ALTER TABLE `Utilizador`
 --
 -- Restrições para despejos de tabelas
 --
+
+--
+-- Limitadores para a tabela `Alertas`
+--
+ALTER TABLE `Alertas`
+  ADD CONSTRAINT `fk_alerta_mensagem` FOREIGN KEY (`ID`) REFERENCES `Mensagens` (`ID`) ON DELETE CASCADE;
 
 --
 -- Limitadores para a tabela `OcupacaoLabirinto`
