@@ -8,10 +8,12 @@ import re
 class EventProcessor:
 
   def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository):
-      self.state_engine = stateEngine
-      self.mongo_repo = mongo_repo
+    self.state_engine = stateEngine
+    self.mongo_repo = mongo_repo
+
 
   def process(self, topic, payload):
+    
     try:
       data = json.loads(payload)
     except Exception:
@@ -20,25 +22,47 @@ class EventProcessor:
 
     data = self._normalize_keys(data)
 
+    player = self._extract_player(topic)
+
     if "mazemov" in topic:
-        self._handle_movement(data)
+      self._handle_movement(data, player)
+
     elif "mazetemp" in topic:
-        self._handle_temperature(data)
+      self._handle_temperature(data, player)
+
     elif "mazesound" in topic:
-        self._handle_sound(data)
+      self._handle_sound(data, player)
+
     else:
-        print("[WARNING] Unknown topic. Ignored.")
+      print("[WARNING] Unknown topic. Ignored.")
+
 
   def _normalize_keys(self, data):
+    
     normalized = {}
+
     for key, value in data.items():
+      
       clean_key = key.lower()
       clean_key = re.sub(r'[^a-z]', '', clean_key)
+
       normalized[clean_key] = value
+
     return normalized
 
-  def _handle_movement(self, data):
+
+  def _extract_player(self, topic):
+      
+    try:
+      return int(topic.split("_")[-1])
+    except:
+      return None
+
+
+  def _handle_movement(self, data, player):
+
     required_fields = ["marsami", "roomorigin", "roomdestiny", "status"]
+
     if not all(field in data for field in required_fields):
       print("[MOVEMENT] Missing required fields.")
       return
@@ -49,23 +73,35 @@ class EventProcessor:
     status = data["status"]
 
     if not isinstance(marsami, int):
-       return
+      return
+
     if not isinstance(origin, int) or not isinstance(destiny, int):
-       return
+      return
+
     if status not in [0, 1, 2]:
-       return
+      return
 
     event = self.state_engine.process_movement(
-        marsami_id=marsami,
-        origin=origin,
-        destiny=destiny,
-        status=status
+      marsami_id=marsami,
+      origin=origin,
+      destiny=destiny,
+      status=status
     )
 
     if event:
-        self.mongo_repo.save_movement(event)
+      
+      event["player"] = player
+      event["timestamp"] = event.get("timestamp", datetime.now())
 
-  def _handle_temperature(self, data):
+      self.mongo_repo.save_movement(event)
+
+      if not event["is_invalid"]:
+
+        self.mongo_repo.save_room_occupancy(self.state_engine.rooms)
+
+
+  def _handle_temperature(self, data, player):
+
     if "temperature" not in data:
       return
 
@@ -78,13 +114,17 @@ class EventProcessor:
     parsed_time = self._parse_timestamp(timestamp)
 
     event = self.state_engine.update_temperature(
-       timestamp=parsed_time,
-       temp=value
+        timestamp=parsed_time,
+        temp=value
     )
+
+    event["player"] = player
 
     self.mongo_repo.save_temperature(event)
 
-  def _handle_sound(self, data):
+
+  def _handle_sound(self, data, player):
+
     if "sound" not in data:
       return
 
@@ -97,13 +137,16 @@ class EventProcessor:
     parsed_time = self._parse_timestamp(timestamp)
 
     event = self.state_engine.update_sound(
-       timestamp=parsed_time,
-       sound=value
+      timestamp=parsed_time,
+      sound=value
     )
+
+    event["player"] = player
 
     self.mongo_repo.save_sound(event)
 
   def _parse_timestamp(self, timestamp):
+
     if not timestamp:
       return datetime.now()
 
