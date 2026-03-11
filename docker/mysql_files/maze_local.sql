@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql
--- Tempo de geração: 10-Mar-2026 às 23:44
+-- Tempo de geração: 11-Mar-2026 às 21:17
 -- Versão do servidor: 8.0.45
 -- versão do PHP: 8.3.30
 
@@ -44,7 +44,8 @@ CREATE TABLE `MedicoesPassagens` (
   `SalaDestino` int DEFAULT NULL,
   `Marsami` int DEFAULT NULL,
   `Status` int DEFAULT NULL,
-  `is_valid` tinyint(1) NOT NULL DEFAULT '1'
+  `is_valid` tinyint(1) NOT NULL DEFAULT '1',
+  `IDJogo` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -61,7 +62,8 @@ CREATE TABLE `Mensagens` (
   `Leitura` decimal(6,2) DEFAULT NULL,
   `TipoAlerta` varchar(50) DEFAULT NULL,
   `Msg` varchar(100) DEFAULT NULL,
-  `HoraEscrita` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `HoraEscrita` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `IDJogo` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -100,7 +102,8 @@ CREATE TABLE `Som` (
   `IDSom` int NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Som` varchar(12) DEFAULT NULL,
-  `is_valid` tinyint(1) NOT NULL DEFAULT '1'
+  `is_valid` tinyint(1) NOT NULL DEFAULT '1',
+  `IDJogo` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -113,7 +116,8 @@ CREATE TABLE `Temperatura` (
   `IDTemperatura` int NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Temperatura` varchar(12) DEFAULT NULL,
-  `is_valid` tinyint(1) NOT NULL DEFAULT '1'
+  `is_valid` tinyint(1) NOT NULL DEFAULT '1',
+  `IDJogo` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -129,7 +133,8 @@ CREATE TABLE `Utilizador` (
   `Tipo` varchar(10) DEFAULT NULL,
   `Email` varchar(50) DEFAULT NULL,
   `DataNascimento` date DEFAULT NULL,
-  `Equipa` int NOT NULL
+  `Equipa` int NOT NULL,
+  `IDJogo` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
@@ -146,13 +151,15 @@ ALTER TABLE `Alertas`
 -- Índices para tabela `MedicoesPassagens`
 --
 ALTER TABLE `MedicoesPassagens`
-  ADD PRIMARY KEY (`IDMedicao`);
+  ADD PRIMARY KEY (`IDMedicao`),
+  ADD KEY `fk_medicoes_simulacao` (`IDJogo`);
 
 --
 -- Índices para tabela `Mensagens`
 --
 ALTER TABLE `Mensagens`
-  ADD PRIMARY KEY (`ID`);
+  ADD PRIMARY KEY (`ID`),
+  ADD KEY `fk_mensagens_simulacao` (`IDJogo`);
 
 --
 -- Índices para tabela `OcupacaoLabirinto`
@@ -170,19 +177,22 @@ ALTER TABLE `Simulacao`
 -- Índices para tabela `Som`
 --
 ALTER TABLE `Som`
-  ADD PRIMARY KEY (`IDSom`);
+  ADD PRIMARY KEY (`IDSom`),
+  ADD KEY `fk_som_simulacao` (`IDJogo`);
 
 --
 -- Índices para tabela `Temperatura`
 --
 ALTER TABLE `Temperatura`
-  ADD PRIMARY KEY (`IDTemperatura`);
+  ADD PRIMARY KEY (`IDTemperatura`),
+  ADD KEY `fk_temperatura_simulacao` (`IDJogo`);
 
 --
 -- Índices para tabela `Utilizador`
 --
 ALTER TABLE `Utilizador`
-  ADD PRIMARY KEY (`IDUtilizador`);
+  ADD PRIMARY KEY (`IDUtilizador`),
+  ADD KEY `fk_utilizador_simulacao` (`IDJogo`);
 
 --
 -- AUTO_INCREMENT de tabelas despejadas
@@ -235,10 +245,40 @@ ALTER TABLE `Alertas`
   ADD CONSTRAINT `fk_alerta_mensagem` FOREIGN KEY (`ID`) REFERENCES `Mensagens` (`ID`) ON DELETE CASCADE;
 
 --
+-- Limitadores para a tabela `MedicoesPassagens`
+--
+ALTER TABLE `MedicoesPassagens`
+  ADD CONSTRAINT `fk_medicoes_simulacao` FOREIGN KEY (`IDJogo`) REFERENCES `Simulacao` (`IDSimulacao`) ON DELETE CASCADE;
+
+--
+-- Limitadores para a tabela `Mensagens`
+--
+ALTER TABLE `Mensagens`
+  ADD CONSTRAINT `fk_mensagens_simulacao` FOREIGN KEY (`IDJogo`) REFERENCES `Simulacao` (`IDSimulacao`) ON DELETE CASCADE;
+
+--
 -- Limitadores para a tabela `OcupacaoLabirinto`
 --
 ALTER TABLE `OcupacaoLabirinto`
   ADD CONSTRAINT `fk_ocupacao_simulacao` FOREIGN KEY (`IDJogo`) REFERENCES `Simulacao` (`IDSimulacao`) ON DELETE CASCADE;
+
+--
+-- Limitadores para a tabela `Som`
+--
+ALTER TABLE `Som`
+  ADD CONSTRAINT `fk_som_simulacao` FOREIGN KEY (`IDJogo`) REFERENCES `Simulacao` (`IDSimulacao`) ON DELETE CASCADE;
+
+--
+-- Limitadores para a tabela `Temperatura`
+--
+ALTER TABLE `Temperatura`
+  ADD CONSTRAINT `fk_temperatura_simulacao` FOREIGN KEY (`IDJogo`) REFERENCES `Simulacao` (`IDSimulacao`) ON DELETE CASCADE;
+
+--
+-- Limitadores para a tabela `Utilizador`
+--
+ALTER TABLE `Utilizador`
+  ADD CONSTRAINT `fk_utilizador_simulacao` FOREIGN KEY (`IDJogo`) REFERENCES `Simulacao` (`IDSimulacao`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
