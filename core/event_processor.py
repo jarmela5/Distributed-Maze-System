@@ -1,4 +1,5 @@
 from core.state_engine import StateEngine
+from core.decision_engine import DecisionEngine
 from persistance.mongo_repository import MongoRepository
 import json
 from datetime import datetime
@@ -7,7 +8,7 @@ import re
 
 class EventProcessor:
 
-  def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository, decision_engine):
+  def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository, decision_engine: DecisionEngine):
     self.state_engine = stateEngine
     self.mongo_repo = mongo_repo
     self.decision_engine = decision_engine
@@ -100,7 +101,8 @@ class EventProcessor:
 
         self.mongo_repo.save_room_occupancy(self.state_engine.rooms)
               
-      self.decision_engine.evaluate()  
+      if(self.state_engine.game_started == True):
+        self.decision_engine.evaluate() 
   
 
 
@@ -125,7 +127,8 @@ class EventProcessor:
     event["player"] = player
 
     self.mongo_repo.save_temperature(event)
-    self.decision_engine.evaluate() 
+    if(self.state_engine.game_started == True):
+      self.decision_engine.evaluate() 
 
 
 
@@ -150,7 +153,8 @@ class EventProcessor:
     event["player"] = player
 
     self.mongo_repo.save_sound(event)
-    self.decision_engine.evaluate()  # <-- aqui
+    if(self.state_engine.game_started == True):
+      self.decision_engine.evaluate() 
 
 
   def _parse_timestamp(self, timestamp):

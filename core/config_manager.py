@@ -5,10 +5,10 @@ class ConfigManager:
 
     def __init__(self):
         self.conn = mysql.connector.connect(
-            user='aluno',
-            host='194.210.86.10',
-            database='maze',
-            passwd='aluno'
+            user="aluno",
+            host="194.210.86.10",
+            database="maze",
+            passwd="aluno"
         )
 
     def get_maze_graph(self):
@@ -16,11 +16,8 @@ class ConfigManager:
         cursor = self.conn.cursor()
 
         query = """
-        SELECT Rooma,
-               Roomb,
-               distance
-        FROM corridor
-        WHERE active = 1
+        SELECT RoomA, RoomB
+        FROM Corridor
         """
 
         cursor.execute(query)
@@ -28,27 +25,69 @@ class ConfigManager:
 
         cursor.close()
 
-        room_graph = {}
+        graph = {}
 
-        for room_a, room_b, distance in rows:
+        for a, b in rows:
 
-            if room_a not in room_graph:
-                room_graph[room_a] = []
+            if a not in graph:
+                graph[a] = []
 
-            room_graph[room_a].append(room_b)
+            if b not in graph:
+                graph[b] = []
 
-        return room_graph
+            graph[a].append(b)
+            graph[b].append(a)
+
+        return graph
+
+
+    def get_temperature_config(self):
+
+        cursor = self.conn.cursor()
+
+        query = """
+        SELECT normaltemperature,
+               temperaturevarhightoleration,
+               temperaturevarlowtoleration
+        FROM SetupMaze
+        """
+
+        cursor.execute(query)
+        result = cursor.fetchone()
+
+        cursor.close()
+
+        normal, high_tol, low_tol = result
+
+        return {
+            "normal": normal,
+            "high_tol": high_tol,
+            "low_tol": low_tol
+        }
+
+
+    def get_noise_config(self):
+
+        cursor = self.conn.cursor()
+
+        query = """
+        SELECT normalnoise,
+               noisevartoleration
+        FROM SetupMaze
+        """
+
+        cursor.execute(query)
+        result = cursor.fetchone()
+
+        cursor.close()
+
+        normal, tol = result
+
+        return {
+            "normal": normal,
+            "tolerance": tol
+        }
+
 
     def close(self):
         self.conn.close()
-
-
-# if __name__ == "__main__":
-
-#     manager = ConfigManager()
-
-#     graph = manager.get_maze_graph()
-
-#     print("Maze graph:", graph)
-
-#     manager.close()

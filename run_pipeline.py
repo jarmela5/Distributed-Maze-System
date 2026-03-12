@@ -13,6 +13,8 @@ def main():
     config_manager = ConfigManager()
 
     maze_graph = config_manager.get_maze_graph()
+    temp_var = config_manager.get_temperature_config()
+    noise_var = config_manager.get_noise_config()
 
     broker = "broker.emqx.io"
     port = 1883
@@ -20,6 +22,15 @@ def main():
     state_engine = StateEngine(maze_graph)
 
     mongo_repo = MongoRepository()
+
+    decision_engine = DecisionEngine(
+        player_id=6,
+        state_engine=state_engine,
+        broker=broker,
+        port=port,
+        temp_config=temp_var,
+        noise_config=noise_var
+    )
 
     event_processor = EventProcessor(state_engine, mongo_repo, decision_engine)
 
@@ -30,15 +41,37 @@ def main():
         event_processor=event_processor
     )
 
-    decision_engine = DecisionEngine(
-    player_id=6,
-    state_engine=state_engine,
-    mongo_repo=mongo_repo,
-    broker=broker,
-    port=port
-    )
+    try:
 
-    mqtt_listener.start()
+        mqtt_listener.start()
+
+    except KeyboardInterrupt:
+
+        print("\nShutting down system...")
+
+    finally:
+
+        try:
+            mqtt_listener.stop()
+        except:
+            pass
+
+        try:
+            decision_engine.stop()
+        except:
+            pass
+
+        try:
+            mongo_repo.client.close()
+        except:
+            pass
+
+        try:
+            config_manager.close()
+        except:
+            pass
+
+        print("System stopped cleanly.")
 
 
 if __name__ == "__main__":
