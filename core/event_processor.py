@@ -7,9 +7,10 @@ import re
 
 class EventProcessor:
 
-  def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository):
+  def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository, decision_engine):
     self.state_engine = stateEngine
     self.mongo_repo = mongo_repo
+    self.decision_engine = decision_engine
 
 
   def process(self, topic, payload):
@@ -98,6 +99,9 @@ class EventProcessor:
       if not event["is_invalid"]:
 
         self.mongo_repo.save_room_occupancy(self.state_engine.rooms)
+              
+      self.decision_engine.evaluate()  
+  
 
 
   def _handle_temperature(self, data, player):
@@ -121,6 +125,8 @@ class EventProcessor:
     event["player"] = player
 
     self.mongo_repo.save_temperature(event)
+    self.decision_engine.evaluate() 
+
 
 
   def _handle_sound(self, data, player):
@@ -144,6 +150,8 @@ class EventProcessor:
     event["player"] = player
 
     self.mongo_repo.save_sound(event)
+    self.decision_engine.evaluate()  # <-- aqui
+
 
   def _parse_timestamp(self, timestamp):
 
