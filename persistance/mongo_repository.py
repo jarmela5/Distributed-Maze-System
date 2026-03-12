@@ -12,6 +12,7 @@ class MongoRepository:
         self.temperature_events = self.db["temperature_events"]
         self.sound_events       = self.db["sound_events"]
         self.movement_events    = self.db["movement_events"]
+        self.room_occupancy = self.db["room_occupancy"]
 
         self._create_indexes()
         print("[MongoDB] MongoRepository connected to", db_name)
@@ -26,34 +27,60 @@ class MongoRepository:
         self.movement_events.create_index("marsami_id")
 
     def save_temperature(self, event: dict):
+
         doc = {
-            "player":     event.get("player"),
-            "timestamp":  event.get("timestamp", datetime.now()),
-            "value":      event.get("value"),
-            "is_outlier": event.get("is_invalid", False),
-            "reason":     event.get("reason", None),
+            "player": event.get("player"),
+            "timestamp": event.get("timestamp", datetime.now()),
+            "value": event.get("value"),
+            "is_valid": not event.get("is_invalid", False),
+            "reason": event.get("reason")
         }
+
         self.temperature_events.insert_one(doc)
 
+
     def save_sound(self, event: dict):
+
         doc = {
-            "player":     event.get("player"),
-            "timestamp":  event.get("timestamp", datetime.now()),
-            "value":      event.get("value"),
-            "is_outlier": event.get("is_invalid", False),
-            "reason":     event.get("reason", None),
+            "player": event.get("player"),
+            "timestamp": event.get("timestamp", datetime.now()),
+            "value": event.get("value"),
+            "is_valid": not event.get("is_invalid", False),
+            "reason": event.get("reason")
         }
+
         self.sound_events.insert_one(doc)
 
+
     def save_movement(self, event: dict):
+
         doc = {
-            "player":     event.get("player"),
+            "player": event.get("player"),
             "marsami_id": event.get("marsami_id"),
-            "origin":     event.get("origin"),
-            "destiny":    event.get("destiny"),
-            "status":     event.get("status"),
-            "is_invalid": event.get("is_invalid", False),
-            "reason":     event.get("reason", None),
-            "timestamp":  event.get("timestamp", datetime.now()),
+            "origin": event.get("origin"),
+            "destiny": event.get("destiny"),
+            "status": event.get("status"),
+            "is_valid": not event.get("is_invalid", False),
+            "reason": event.get("reason"),
+            "timestamp": event.get("timestamp", datetime.now())
         }
+
         self.movement_events.insert_one(doc)
+
+    def save_room_occupancy(self, rooms: dict):
+
+        for room_id, data in rooms.items():
+
+            doc = {
+                "room_id": room_id,
+                "odd": data["odd"],
+                "even": data["even"],
+                "total": data["total"],
+                "timestamp": datetime.now()
+            }
+
+            self.room_occupancy.update_one(
+                {"room_id": room_id},
+                {"$set": doc},
+                upsert=True
+            )

@@ -11,18 +11,12 @@ def main():
 
     config_manager = ConfigManager()
 
-    broker_config = config_manager.get_broker_config()
-    outlier_config = config_manager.get_outlier_config()
     maze_graph = config_manager.get_maze_graph()
 
-    broker = broker_config["broker"]
-    port = broker_config["port"]
+    broker = "broker.emqx.io"
+    port = 1883
 
-    state_engine = StateEngine(
-        maze_graph,
-        outlier_config["temp_outlier"],
-        outlier_config["sound_outlier"]
-    )
+    state_engine = StateEngine(maze_graph)
 
     mongo_repo = MongoRepository()
 
