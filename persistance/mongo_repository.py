@@ -38,9 +38,21 @@ class MongoRepository:
             return_document=pymongo.ReturnDocument.AFTER
         )
         return result["seq"]
+        self.movement_events.create_index("migrated")
+
+    def _next_seq(self):
+        """Contador atómico global — garante ordem real de chegada das mensagens."""
+        result = self.db["counters"].find_one_and_update(
+            {"_id": "seq"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=pymongo.ReturnDocument.AFTER
+        )
+        return result["seq"]
 
     def save_temperature(self, event: dict):
         doc = {
+            "seq":        self._next_seq(),
             "seq":        self._next_seq(),
             "player":     event.get("player"),
             "timestamp":  event.get("timestamp", datetime.now()),
@@ -54,6 +66,7 @@ class MongoRepository:
     def save_sound(self, event: dict):
         doc = {
             "seq":        self._next_seq(),
+            "seq":        self._next_seq(),
             "player":     event.get("player"),
             "timestamp":  event.get("timestamp", datetime.now()),
             "value":      event.get("value"),
@@ -66,6 +79,7 @@ class MongoRepository:
     def save_movement(self, event: dict):
         doc = {
             "seq":        self._next_seq(),
+            "seq":        self._next_seq(),
             "player":     event.get("player"),
             "marsami_id": event.get("marsami_id"),
             "origin":     event.get("origin"),
@@ -74,6 +88,7 @@ class MongoRepository:
             "is_valid":   not event.get("is_invalid", False),
             "reason":     event.get("reason"),
             "timestamp":  event.get("timestamp", datetime.now()),
+            "migrated":   False,
             "migrated":   False,
         }
         self.movement_events.insert_one(doc)

@@ -34,6 +34,16 @@ CREATE TABLE `Alertas` (
 -- --------------------------------------------------------
 
 --
+-- Estrutura da tabela `Alertas`
+--
+
+CREATE TABLE `Alertas` (
+  `ID` bigint NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Estrutura da tabela `MedicoesPassagens`
 --
 
@@ -131,6 +141,7 @@ CREATE TABLE `Utilizador` (
   `Nome` varchar(100) NOT NULL,
   `Telemovel` varchar(12) DEFAULT NULL,
   `Tipo` varchar(10) DEFAULT NULL,
+  `Tipo` varchar(10) DEFAULT NULL,
   `Email` varchar(50) DEFAULT NULL,
   `DataNascimento` date DEFAULT NULL,
   `Equipa` int NOT NULL,
@@ -140,6 +151,12 @@ CREATE TABLE `Utilizador` (
 --
 -- Índices para tabelas despejadas
 --
+
+--
+-- Índices para tabela `Alertas`
+--
+ALTER TABLE `Alertas`
+  ADD PRIMARY KEY (`ID`);
 
 --
 -- Índices para tabela `Alertas`
