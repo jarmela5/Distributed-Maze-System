@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import mysql.connector
 import paho.mqtt.client as mqtt
@@ -15,6 +16,7 @@ class MySQLWriter:
     def __init__(self, broker, port):
         self.mysql_conn = self._conectar_mysql()
         self._running = True
+        self.simulation_id = self._create_simulation()
 
         self._mqtt = mqtt.Client(client_id="mysql_writer")
         self._mqtt.on_connect = self._on_connect
@@ -30,13 +32,33 @@ class MySQLWriter:
         )
         conn.autocommit = False
         return conn
+    
+    def _create_simulation(self):
+
+        cursor = self.mysql_conn.cursor()
+
+        dados = json.dumps({
+            "Email": "system",
+            "StartTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Descricao": "Simulação iniciada automaticamente"
+        })
+
+        args = [dados, 0]
+
+        result = cursor.callproc("CriarJogo", args)
+
+        simulation_id = result[1]
+
+        self.mysql_conn.commit()
+        cursor.close()
+
+        print(f"[MySQLWriter] Simulação criada ID={simulation_id}")
+
+        return simulation_id
+    
 
     def _get_active_jogo_id(self):
-        cursor = self.mysql_conn.cursor()
-        cursor.execute("SELECT IDSimulacao FROM Simulacao ORDER BY IDSimulacao DESC LIMIT 1")
-        result = cursor.fetchone()
-        cursor.close()
-        return result[0] if result else None
+        return self.simulation_id
 
     # Handlers MQTT 
 
@@ -61,10 +83,15 @@ class MySQLWriter:
 
             if event_type == "movement":
                 self._insert_movement(cursor, doc, id_jogo)
+
             elif event_type == "temperature":
                 self._insert_temperature(cursor, doc, id_jogo)
+
             elif event_type == "sound":
                 self._insert_sound(cursor, doc, id_jogo)
+
+            elif event_type == "occupancy":
+                self._insert_occupancy(cursor, doc, id_jogo)
             else:
                 print(f"[MySQLWriter] Tipo desconhecido: {event_type}")
                 return
@@ -75,7 +102,9 @@ class MySQLWriter:
 
         except Exception as e:
             self.mysql_conn.rollback()
-            print(f"[MySQLWriter] Erro ao inserir: {e}")
+            print("[MySQLWriter] ERRO SQL:")
+            print(e)
+            print("DOC:", doc)
 
     #Inserts MySQL
 
@@ -113,6 +142,21 @@ class MySQLWriter:
             str(round(float(doc.get("value", 0)), 2)),
             doc.get("is_valid", True),
             id_jogo,
+        ))
+
+    def _insert_occupancy(self, cursor, doc, id_jogo):
+
+        cursor.execute("""
+            INSERT INTO OcupacaoLabirinto (IDJogo, Sala, NumeroMarsamisOdd, NumeroMarsamisEven)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                NumeroMarsamisOdd = VALUES(NumeroMarsamisOdd),
+                NumeroMarsamisEven = VALUES(NumeroMarsamisEven)
+        """, (
+            id_jogo,
+            doc.get("room_id"),
+            doc.get("odd"),
+            doc.get("even")
         ))
 
     # Start/Stop

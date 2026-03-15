@@ -11,12 +11,13 @@ class MigrationWorker:
     A ordem de publicação segue o campo 'seq' garantindo ordem de chegada.
     """
 
-    COLLECTIONS = ["movement_events", "temperature_events", "sound_events"]
+    COLLECTIONS = ["movement_events", "temperature_events", "sound_events", "room_occupancy"]
 
     TYPE_MAP = {
         "movement_events":    "movement",
         "temperature_events": "temperature",
         "sound_events":       "sound",
+        "room_occupancy":     "occupancy"
     }
 
     TOPIC = "pisid_migrate_all"
@@ -61,6 +62,14 @@ class MigrationWorker:
                 "marsami_id": doc.get("marsami_id"),
                 "status":     doc.get("status"),
                 "is_valid":   doc.get("is_valid", True),
+            })
+        elif collection_name == "room_occupancy":
+            payload.update({
+                "timestamp": str(doc.get("timestamp")),
+                "room_id": doc.get("room_id"),
+                "odd": doc.get("odd"),
+                "even": doc.get("even"),
+                "total": doc.get("total")
             })
         else:
             payload.update({

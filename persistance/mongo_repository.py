@@ -28,6 +28,9 @@ class MongoRepository:
         self.movement_events.create_index("player")
         self.movement_events.create_index("marsami_id")
         self.movement_events.create_index("migrated")
+        self.room_occupancy.create_index("seq")
+        self.room_occupancy.create_index("migrated")
+        self.room_occupancy.create_index("room_id")
 
     def _next_seq(self):
         """Contador atómico global — garante ordem real de chegada das mensagens."""
@@ -78,20 +81,23 @@ class MongoRepository:
         }
         self.movement_events.insert_one(doc)
 
-    def save_room_occupancy(self, rooms: dict):
-        for room_id, data in rooms.items():
+    def save_room_occupancy(self, changed_rooms, rooms):
+
+        for room_id in changed_rooms:
+
+            data = rooms[room_id]
+
             doc = {
-                "room_id":   room_id,
-                "odd":       data["odd"],
-                "even":      data["even"],
-                "total":     data["total"],
-                "timestamp": datetime.now()
+                "seq": self._next_seq(),
+                "room_id": room_id,
+                "odd": data["odd"],
+                "even": data["even"],
+                "total": data["total"],
+                "timestamp": datetime.now(),
+                "migrated": False
             }
-            self.room_occupancy.update_one(
-                {"room_id": room_id},
-                {"$set": doc},
-                upsert=True
-            )
+
+            self.room_occupancy.insert_one(doc)
 
     # Métodos de suporte à migração
 
