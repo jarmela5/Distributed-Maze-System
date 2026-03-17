@@ -48,6 +48,9 @@ class StateEngine:
             "reason": None
         }
 
+        changed_rooms = []
+
+        # Entrada inicial no labirinto
         if origin == 0 and destiny != 0:
 
             self._ensure_room_exists(destiny)
@@ -58,33 +61,37 @@ class StateEngine:
             self.marsami_positions[marsami_id] = destiny
             event["current_room"] = destiny
 
-            return event
+            changed_rooms = [destiny]
 
+            return event, changed_rooms
+
+
+        # Movimento entre salas
         if origin != 0 and destiny != 0:
-            
+
             self.game_started = True
 
             if marsami_id not in self.marsami_positions:
                 event["is_invalid"] = True
                 event["reason"] = "Unknown current position"
-                return event
+                return event, []
 
             current_room = self.marsami_positions[marsami_id]
 
             if current_room != origin:
                 event["is_invalid"] = True
                 event["reason"] = "Origin mismatch"
-                return event
+                return event, []
 
             if origin not in self.room_graph:
                 event["is_invalid"] = True
                 event["reason"] = "Origin not in graph"
-                return event
+                return event, []
 
             if destiny not in self.room_graph[origin]:
                 event["is_invalid"] = True
                 event["reason"] = "Invalid corridor"
-                return event
+                return event, []
 
             self._ensure_room_exists(origin)
             self._ensure_room_exists(destiny)
@@ -98,15 +105,19 @@ class StateEngine:
             self.marsami_positions[marsami_id] = destiny
             event["current_room"] = destiny
 
-            return event
+            changed_rooms = [origin, destiny]
 
+            return event, changed_rooms
+
+
+        # Fim da simulação
         if origin == 0 and destiny == 0 and status == 2:
-            
+
             self.game_started = False
 
             event["current_room"] = self.marsami_positions.get(marsami_id)
 
-            return event
+            return event, []
 
 
     def update_temperature(self, timestamp, temp):
