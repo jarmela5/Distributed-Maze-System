@@ -23,6 +23,7 @@ CREATE TABLE Simulacao (
 
 CREATE TABLE MedicoesPassagens (
   IDMedicao INT AUTO_INCREMENT PRIMARY KEY,
+  seq BIGINT NOT NULL,
   Hora TIMESTAMP NULL,
   SalaOrigem INT,
   SalaDestino INT,
@@ -30,6 +31,7 @@ CREATE TABLE MedicoesPassagens (
   Status INT,
   is_valid BOOLEAN DEFAULT TRUE,
   IDJogo INT NOT NULL,
+  UNIQUE KEY uq_medicoes_seq_jogo (seq, IDJogo),
   FOREIGN KEY (IDJogo) REFERENCES Simulacao(IDSimulacao) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -39,10 +41,12 @@ CREATE TABLE MedicoesPassagens (
 
 CREATE TABLE Temperatura (
   IDTemperatura INT AUTO_INCREMENT PRIMARY KEY,
+  seq BIGINT NOT NULL,
   Hora TIMESTAMP NULL,
   Temperatura DECIMAL(6,2),
   is_valid BOOLEAN DEFAULT TRUE,
   IDJogo INT NOT NULL,
+  UNIQUE KEY uq_temperatura_seq_jogo (seq, IDJogo),
   FOREIGN KEY (IDJogo) REFERENCES Simulacao(IDSimulacao) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -52,10 +56,12 @@ CREATE TABLE Temperatura (
 
 CREATE TABLE Som (
   IDSom INT AUTO_INCREMENT PRIMARY KEY,
+  seq BIGINT NOT NULL,
   Hora TIMESTAMP NULL,
   Som DECIMAL(6,2),
   is_valid BOOLEAN DEFAULT TRUE,
   IDJogo INT NOT NULL,
+  UNIQUE KEY uq_som_seq_jogo (seq, IDJogo),
   FOREIGN KEY (IDJogo) REFERENCES Simulacao(IDSimulacao) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

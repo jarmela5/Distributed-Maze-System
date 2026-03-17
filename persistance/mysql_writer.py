@@ -1,19 +1,16 @@
 from datetime import datetime
 import json
+import time
 import mysql.connector
 import paho.mqtt.client as mqtt
 
 
 class MySQLWriter:
-    """
-    Subscreve o tópico único de migração no MQTT e insere no MySQL local.
-    Usa o campo 'type' para distinguir movimento, temperatura e som.
-    A ordem de inserção é garantida pela ordem de chegada das mensagens no tópico.
-    """
 
     TOPIC = "pisid_migrate_all"
 
     def __init__(self, broker, port):
+
         self.mysql_conn = self._conectar_mysql()
         self._running = True
         self.simulation_id = self._create_simulation()
@@ -23,16 +20,20 @@ class MySQLWriter:
         self._mqtt.on_message = self._on_message
         self._mqtt.connect(broker, port)
 
+
     def _conectar_mysql(self):
+
         conn = mysql.connector.connect(
             user='root',
             host='localhost',
             database='maze_local',
             passwd='root'
         )
+
         conn.autocommit = False
         return conn
-    
+
+
     def _create_simulation(self):
 
         cursor = self.mysql_conn.cursor()
@@ -55,26 +56,34 @@ class MySQLWriter:
         print(f"[MySQLWriter] Simulação criada ID={simulation_id}")
 
         return simulation_id
-    
+
 
     def _get_active_jogo_id(self):
         return self.simulation_id
 
-    # Handlers MQTT 
+
+    # MQTT handlers
 
     def _on_connect(self, client, userdata, flags, rc):
+
         if rc == 0:
             client.subscribe(self.TOPIC, qos=1)
             print(f"[MySQLWriter] Subscribed to {self.TOPIC}")
         else:
             print(f"[MySQLWriter] Connection failed: {rc}")
 
+
     def _on_message(self, client, userdata, msg):
+
+        cursor = None
+
         try:
+
             doc = json.loads(msg.payload.decode())
             event_type = doc.get("type")
 
             id_jogo = self._get_active_jogo_id()
+
             if id_jogo is None:
                 print("[MySQLWriter] Nenhuma simulação encontrada — mensagem ignorada")
                 return
@@ -92,63 +101,92 @@ class MySQLWriter:
 
             elif event_type == "occupancy":
                 self._insert_occupancy(cursor, doc, id_jogo)
+
             else:
                 print(f"[MySQLWriter] Tipo desconhecido: {event_type}")
                 return
 
             self.mysql_conn.commit()
-            cursor.close()
+
             print(f"[MySQLWriter] Inserido no MySQL (type={event_type}, seq={doc.get('seq')})")
 
-        except Exception as e:
-            self.mysql_conn.rollback()
-            print("[MySQLWriter] ERRO SQL:")
-            print(e)
-            print("DOC:", doc)
+        except mysql.connector.Error as e:
 
-    #Inserts MySQL
+            print("[MySQLWriter] MySQL error:", e)
+
+            try:
+                self.mysql_conn.rollback()
+            except:
+                pass
+
+            self._reconnect_mysql()
+
+        finally:
+
+            if cursor:
+                cursor.close()
+
+
+    # INSERTS
+
 
     def _insert_movement(self, cursor, doc, id_jogo):
+
         cursor.execute("""
-            INSERT INTO MedicoesPassagens (Hora, SalaOrigem, SalaDestino, Marsami, Status, is_valid, IDJogo)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO MedicoesPassagens
+            (seq, Hora, SalaOrigem, SalaDestino, Marsami, Status, is_valid, IDJogo)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            ON DUPLICATE KEY UPDATE seq = seq
         """, (
+            doc.get("seq"),
             doc.get("timestamp"),
             doc.get("origin"),
             doc.get("destiny"),
             doc.get("marsami_id"),
             doc.get("status"),
             doc.get("is_valid", True),
-            id_jogo,
+            id_jogo
         ))
+
 
     def _insert_temperature(self, cursor, doc, id_jogo):
+
         cursor.execute("""
-            INSERT INTO Temperatura (Hora, Temperatura, is_valid, IDJogo)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO Temperatura
+            (seq, Hora, Temperatura, is_valid, IDJogo)
+            VALUES (%s,%s,%s,%s,%s)
+            ON DUPLICATE KEY UPDATE seq = seq
         """, (
+            doc.get("seq"),
             doc.get("timestamp"),
-            str(round(float(doc.get("value", 0)), 2)),
+            round(float(doc.get("value", 0)), 2),
             doc.get("is_valid", True),
-            id_jogo,
+            id_jogo
         ))
 
+
     def _insert_sound(self, cursor, doc, id_jogo):
+
         cursor.execute("""
-            INSERT INTO Som (Hora, Som, is_valid, IDJogo)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO Som
+            (seq, Hora, Som, is_valid, IDJogo)
+            VALUES (%s,%s,%s,%s,%s)
+            ON DUPLICATE KEY UPDATE seq = seq
         """, (
+            doc.get("seq"),
             doc.get("timestamp"),
-            str(round(float(doc.get("value", 0)), 2)),
+            round(float(doc.get("value", 0)), 2),
             doc.get("is_valid", True),
-            id_jogo,
+            id_jogo
         ))
+
 
     def _insert_occupancy(self, cursor, doc, id_jogo):
 
         cursor.execute("""
-            INSERT INTO OcupacaoLabirinto (IDJogo, Sala, NumeroMarsamisOdd, NumeroMarsamisEven)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO OcupacaoLabirinto
+            (IDJogo, Sala, NumeroMarsamisOdd, NumeroMarsamisEven)
+            VALUES (%s,%s,%s,%s)
             ON DUPLICATE KEY UPDATE
                 NumeroMarsamisOdd = VALUES(NumeroMarsamisOdd),
                 NumeroMarsamisEven = VALUES(NumeroMarsamisEven)
@@ -159,15 +197,37 @@ class MySQLWriter:
             doc.get("even")
         ))
 
-    # Start/Stop
+
+    # lifecycle
 
     def start(self):
+
         print("[MySQLWriter] A iniciar MQTT → MySQL")
         self._mqtt.loop_forever()
 
+
     def stop(self):
+
         self._running = False
         self._mqtt.loop_stop()
         self._mqtt.disconnect()
         self.mysql_conn.close()
+
         print("[MySQLWriter] stopped")
+
+    def _reconnect_mysql(self):
+
+        while True:
+            try:
+                print("[MySQLWriter] Reconnecting to MySQL...")
+
+                self.mysql_conn = self._conectar_mysql()
+
+                self.mysql_conn.autocommit = False
+
+                print("[MySQLWriter] MySQL reconnected")
+
+                return
+
+            except Exception:
+                time.sleep(3)
