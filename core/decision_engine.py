@@ -11,7 +11,7 @@ class DecisionEngine:
 
     DECISION_INTERVAL = 1.0
 
-    def __init__(self, player_id, state_engine: StateEngine, broker, port,
+    def __init__(self, player_id, state_engine: StateEngine, broker, port, 
                  temp_config, noise_config):
 
         self.player_id = player_id
