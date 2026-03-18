@@ -116,13 +116,10 @@ class DecisionEngine:
 
         self._ac_on = on
 
-        # payload = {
-        #     "Type": "AC_CONTROL",   # substituir quando souberes a mensagem real
-        #     "Player": self.player_id,
-        #     "State": "ON" if on else "OFF"
-        # }
-
-        # self._publish(payload)
+        self._publish({
+        "Type": "AcOn" if on else "AcOff",
+        "Player": self.player_id
+    })
 
 
     def _check_noise(self):

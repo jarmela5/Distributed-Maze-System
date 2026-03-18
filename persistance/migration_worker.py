@@ -1,6 +1,7 @@
 import time
 import json
 import threading
+import threading
 import paho.mqtt.client as mqtt
 from persistance.mongo_repository import MongoRepository
 
@@ -11,6 +12,7 @@ class MigrationWorker:
     com campo 'type' para distinguir o tipo de evento.
     A ordem de publicação segue o campo 'seq' garantindo ordem de chegada.
     Só marca migrated: True após confirmação do MySQLWriter via pisid_migrate_confirm.
+    Só marca migrated: True após confirmação do MySQLWriter via pisid_migrate_confirm.
     """
 
     COLLECTIONS = ["movement_events", "temperature_events", "sound_events", "room_occupancy"]
@@ -20,8 +22,11 @@ class MigrationWorker:
         "temperature_events": "temperature",
         "sound_events":       "sound",
         "room_occupancy":     "occupancy",
+        "room_occupancy":     "occupancy",
     }
 
+    TOPIC         = "pisid_migrate_all"
+    TOPIC_CONFIRM = "pisid_migrate_confirm"
     TOPIC         = "pisid_migrate_all"
     TOPIC_CONFIRM = "pisid_migrate_confirm"
 
@@ -29,6 +34,10 @@ class MigrationWorker:
         self.mongo_repo = mongo_repo
         self.polling_interval = polling_interval
         self._running = True
+
+        # pending: seq → (collection_name, doc_id)
+        self._pending = {}
+        self._pending_lock = threading.Lock()
 
         # pending: seq → (collection_name, doc_id)
         self._pending = {}
@@ -71,7 +80,35 @@ class MigrationWorker:
         except Exception as e:
             print(f"[MigrationWorker] Erro ao processar confirmação: {e}")
 
+    def _on_connect(self, client, userdata, flags, rc):
+        if rc == 0:
+            client.subscribe(self.TOPIC_CONFIRM, qos=1)
+            print(f"[MigrationWorker] Subscribed to {self.TOPIC_CONFIRM}")
+
+    def _on_confirm(self, client, userdata, msg):
+        """Recebe confirmação do MySQLWriter e marca o documento como migrado."""
+        try:
+            data = json.loads(msg.payload.decode())
+            seq = data.get("seq")
+            success = data.get("success", False)
+
+            if not success:
+                print(f"[MigrationWorker] Insert falhou para seq={seq} — será reenviado")
+                with self._pending_lock:
+                    self._pending.pop(seq, None)
+                return
+
+            with self._pending_lock:
+                if seq in self._pending:
+                    collection_name, doc_id = self._pending.pop(seq)
+                    self.mongo_repo.mark_as_migrated(collection_name, doc_id)
+                    print(f"[MigrationWorker] Confirmado e marcado migrated: seq={seq}")
+
+        except Exception as e:
+            print(f"[MigrationWorker] Erro ao processar confirmação: {e}")
+
     def _get_all_unmigrated(self):
+        """Vai buscar docs não migrados de todas as coleções, ordenados por seq."""
         """Vai buscar docs não migrados de todas as coleções, ordenados por seq."""
         all_docs = []
         for collection_name in self.COLLECTIONS:
@@ -82,6 +119,7 @@ class MigrationWorker:
         return all_docs
 
     def _publicar(self, collection_name, doc):
+        """Publica documento no tópico único com campo type e aguarda confirmação MQTT."""
         """Publica documento no tópico único com campo type e aguarda confirmação MQTT."""
         payload = {
             "type": self.TYPE_MAP[collection_name],
@@ -100,6 +138,10 @@ class MigrationWorker:
         elif collection_name == "room_occupancy":
             payload.update({
                 "timestamp": str(doc.get("timestamp")),
+                "room_id":   doc.get("room_id"),
+                "odd":       doc.get("odd"),
+                "even":      doc.get("even"),
+                "total":     doc.get("total"),
                 "room_id":   doc.get("room_id"),
                 "odd":       doc.get("odd"),
                 "even":      doc.get("even"),
@@ -138,13 +180,24 @@ class MigrationWorker:
                 if seq in self._pending:
                     continue
 
+            seq = doc.get("seq")
+
+            with self._pending_lock:
+                if seq in self._pending:
+                    continue
+
             try:
                 self._publicar(collection_name, doc)
 
                 with self._pending_lock:
                     self._pending[seq] = (collection_name, doc["_id"])
 
+
+                with self._pending_lock:
+                    self._pending[seq] = (collection_name, doc["_id"])
+
                 publicados += 1
+
 
             except Exception as e:
                 print(f"[ERROR] Falha ao publicar doc {doc['_id']} de {collection_name}: {e}")
@@ -158,13 +211,16 @@ class MigrationWorker:
 
     def run(self):
         print("[MigrationWorker] A iniciar MongoDB → MQTT (com confirmação MySQL)")
+        print("[MigrationWorker] A iniciar MongoDB → MQTT (com confirmação MySQL)")
 
         while self._running:
             total = self._migrar()
 
             if total > 0:
                 print(f"[MigrationWorker] {total} documento(s) publicado(s) — aguardando confirmação")
+                print(f"[MigrationWorker] {total} documento(s) publicado(s) — aguardando confirmação")
             else:
+                print("[MigrationWorker] Nenhum documento novo")
                 print("[MigrationWorker] Nenhum documento novo")
 
             time.sleep(self.polling_interval)

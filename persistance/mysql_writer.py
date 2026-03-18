@@ -11,6 +11,8 @@ class MySQLWriter:
 
     TOPIC         = "pisid_migrate_all"
     TOPIC_CONFIRM = "pisid_migrate_confirm"
+    TOPIC         = "pisid_migrate_all"
+    TOPIC_CONFIRM = "pisid_migrate_confirm"
 
     def __init__(self, broker, port):
 
@@ -71,12 +73,17 @@ class MySQLWriter:
         simulation_id = result[1]
         self.mysql_conn.commit()
         cursor.close()
+        self.mysql_conn.commit()
+        cursor.close()
 
+        cursor = self.mysql_conn.cursor()
+        cursor.callproc("IniciarJogo", [simulation_id])
         cursor = self.mysql_conn.cursor()
         cursor.callproc("IniciarJogo", [simulation_id])
         self.mysql_conn.commit()
         cursor.close()
 
+        print(f"[MySQLWriter] Simulação criada e iniciada ID={simulation_id}")
         print(f"[MySQLWriter] Simulação criada e iniciada ID={simulation_id}")
         return simulation_id
 
@@ -169,9 +176,11 @@ class MySQLWriter:
             elif event_type == "sound":
                 self._insert_sound(cursor, doc, id_jogo)
             elif event_type == "occupancy":
+                print(f"[DEBUG] occupancy doc: {doc}")
                 self._insert_occupancy(cursor, doc, id_jogo)
             else:
                 print(f"[MySQLWriter] Tipo desconhecido: {event_type}")
+                self._publicar_confirmacao(seq, False)
                 self._publicar_confirmacao(seq, False)
                 return
 
@@ -198,6 +207,11 @@ class MySQLWriter:
             self._reconnect_mysql()
 
         finally:
+            try:
+                if cursor:
+                    cursor.close()
+            except Exception:
+                pass
             try:
                 if cursor:
                     cursor.close()
