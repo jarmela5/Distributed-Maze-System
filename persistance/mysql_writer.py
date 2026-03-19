@@ -1,5 +1,7 @@
 from datetime import datetime
+import heapq
 import json
+import threading
 import time
 import mysql.connector
 import paho.mqtt.client as mqtt
@@ -9,6 +11,8 @@ class MySQLWriter:
 
     TOPIC         = "pisid_migrate_all"
     TOPIC_CONFIRM = "pisid_migrate_confirm"
+    TOPIC         = "pisid_migrate_all"
+    TOPIC_CONFIRM = "pisid_migrate_confirm"
 
     def __init__(self, broker, port):
 
@@ -16,13 +20,27 @@ class MySQLWriter:
         self._running = True
         self.simulation_id = self._create_simulation()
 
-        self._mqtt = mqtt.Client(client_id="mysql_writer")
+        # fila ordenada por seq — garante inserção por ordem
+        self._buffer = []
+        self._next_seq = None
+        self._buffer_lock = threading.Lock()
+
+        # thread dedicada a inserir do buffer no MySQL
+        self._insert_thread = threading.Thread(target=self._insert_loop, daemon=True)
+        self._insert_thread.start()
+
+        self._mqtt = mqtt.Client(
+            client_id="mysql_writer",
+            clean_session=False  # ← sessão persistente
+        )
         self._mqtt.on_connect = self._on_connect
         self._mqtt.on_message = self._on_message
+        self._mqtt.on_disconnect = self._on_disconnect
         self._mqtt.connect(broker, port)
 
-    def _conectar_mysql(self):
+    # ─── MySQL ───────────────────────────────────────────────────
 
+    def _conectar_mysql(self):
         conn = mysql.connector.connect(
             user='root',
             host='localhost',
@@ -33,7 +51,7 @@ class MySQLWriter:
         return conn
 
     def _create_simulation(self):
-        # se já existe um jogo ativo, reutiliza-o
+        # reutiliza jogo ativo se já existir
         cursor = self.mysql_conn.cursor()
         cursor.execute("SELECT IDSimulacao FROM Simulacao WHERE Estado='Ativo' LIMIT 1")
         result = cursor.fetchone()
@@ -44,7 +62,6 @@ class MySQLWriter:
             print(f"[MySQLWriter] Jogo ativo encontrado ID={simulation_id}")
             return simulation_id
 
-        # caso contrário cria um novo
         cursor = self.mysql_conn.cursor()
         dados = json.dumps({
             "Email": "system",
@@ -56,49 +73,99 @@ class MySQLWriter:
         simulation_id = result[1]
         self.mysql_conn.commit()
         cursor.close()
+        self.mysql_conn.commit()
+        cursor.close()
 
+        cursor = self.mysql_conn.cursor()
+        cursor.callproc("IniciarJogo", [simulation_id])
         cursor = self.mysql_conn.cursor()
         cursor.callproc("IniciarJogo", [simulation_id])
         self.mysql_conn.commit()
         cursor.close()
 
         print(f"[MySQLWriter] Simulação criada e iniciada ID={simulation_id}")
+        print(f"[MySQLWriter] Simulação criada e iniciada ID={simulation_id}")
         return simulation_id
 
-    def _get_active_jogo_id(self):
-        return self.simulation_id
+    def _reconnect_mysql(self):
+        while True:
+            try:
+                print("[MySQLWriter] Reconnecting to MySQL...")
+                self.mysql_conn = self._conectar_mysql()
+                self.mysql_conn.autocommit = False
+                print("[MySQLWriter] MySQL reconnected")
+                return
+            except Exception:
+                time.sleep(3)
 
-    def _publicar_confirmacao(self, seq, success):
-        """Publica confirmação de insert para o MigrationWorker."""
-        payload = json.dumps({"seq": seq, "success": success})
-        self._mqtt.publish(self.TOPIC_CONFIRM, payload, qos=1)
-
-    # MQTT handlers
+    # ─── MQTT handlers ───────────────────────────────────────────
 
     def _on_connect(self, client, userdata, flags, rc):
-
         if rc == 0:
             client.subscribe(self.TOPIC, qos=1)
             print(f"[MySQLWriter] Subscribed to {self.TOPIC}")
         else:
             print(f"[MySQLWriter] Connection failed: {rc}")
 
+    def _on_disconnect(self, client, userdata, rc):
+        print("[MySQLWriter] Desconectado do broker — a reconectar...")
+        while True:
+            try:
+                client.reconnect()
+                print("[MySQLWriter] Reconectado ao broker")
+                break
+            except Exception:
+                time.sleep(3)
+
     def _on_message(self, client, userdata, msg):
-
-        cursor = None
-        seq = None
-
         try:
             doc = json.loads(msg.payload.decode())
             seq = doc.get("seq")
+            if seq is not None:
+                with self._buffer_lock:
+                    # evita duplicados no buffer
+                    existing_seqs = {s for s, _ in self._buffer}
+                    if seq not in existing_seqs:
+                        heapq.heappush(self._buffer, (seq, doc))
+        except Exception as e:
+            print(f"[MySQLWriter] Erro ao receber mensagem: {e}")
+
+    def _publicar_confirmacao(self, seq, success):
+        """Publica confirmação de insert para o MigrationWorker."""
+        payload = json.dumps({"seq": seq, "success": success})
+        self._mqtt.publish(self.TOPIC_CONFIRM, payload, qos=1)
+
+    # Insert loop (thread separada) 
+
+    def _insert_loop(self):
+        print("[MySQLWriter] Insert loop iniciado")
+
+        while self._running:
+            to_insert = []
+
+            with self._buffer_lock:
+                #print(f"[DEBUG] buffer size={len(self._buffer)}, next_seq={self._next_seq}")  # ← temporário
+                while self._buffer:
+                    seq, doc = self._buffer[0]
+                    if self._next_seq is None:
+                        self._next_seq = seq
+                    if seq != self._next_seq:
+                        break
+                    heapq.heappop(self._buffer)
+                    to_insert.append((seq, doc))
+                    self._next_seq += 1
+
+            for seq, doc in to_insert:
+                self._inserir(seq, doc)
+
+            time.sleep(0.05)
+
+    def _inserir(self, seq, doc):
+        """Insere um documento no MySQL e publica confirmação."""
+        cursor = None
+        try:
             event_type = doc.get("type")
-
-            id_jogo = self._get_active_jogo_id()
-
-            if id_jogo is None:
-                print("[MySQLWriter] Nenhuma simulação encontrada — mensagem ignorada")
-                self._publicar_confirmacao(seq, False)
-                return
+            id_jogo = self.simulation_id
 
             cursor = self.mysql_conn.cursor()
 
@@ -116,27 +183,29 @@ class MySQLWriter:
             else:
                 print(f"[MySQLWriter] Tipo desconhecido: {event_type}")
                 self._publicar_confirmacao(seq, False)
+                self._publicar_confirmacao(seq, False)
                 return
 
             self.mysql_conn.commit()
-
-            # confirma sucesso ao MigrationWorker
             self._publicar_confirmacao(seq, True)
             print(f"[MySQLWriter] Inserido e confirmado (type={event_type}, seq={seq})")
 
         except mysql.connector.Error as e:
-
-            print("[MySQLWriter] MySQL error:", e)
-
+            print(f"[MySQLWriter] MySQL error seq={seq}: {e}")
             try:
                 self.mysql_conn.rollback()
             except:
                 pass
-
-            # confirma falha — MigrationWorker vai reenviar
-            if seq is not None:
-                self._publicar_confirmacao(seq, False)
-
+            self._publicar_confirmacao(seq, False)
+            
+            # repõe o next_seq para reprocessar a partir deste seq
+            with self._buffer_lock:
+                if self._next_seq is not None and seq < self._next_seq:
+                    self._next_seq = seq
+                existing_seqs = {s for s, _ in self._buffer}
+                if seq not in existing_seqs:
+                    heapq.heappush(self._buffer, (seq, doc))
+            
             self._reconnect_mysql()
 
         finally:
@@ -145,11 +214,15 @@ class MySQLWriter:
                     cursor.close()
             except Exception:
                 pass
+            try:
+                if cursor:
+                    cursor.close()
+            except Exception:
+                pass
 
-    # Inserts MySQL
+    #  Inserts MySQL 
 
     def _insert_movement(self, cursor, doc, id_jogo):
-
         cursor.execute("""
             INSERT INTO MedicoesPassagens
             (seq, Hora, SalaOrigem, SalaDestino, Marsami, Status, is_valid, IDJogo)
@@ -183,7 +256,6 @@ class MySQLWriter:
     ))    
 
     def _insert_temperature(self, cursor, doc, id_jogo):
-
         cursor.execute("""
             INSERT INTO Temperatura
             (seq, Hora, Temperatura, is_valid, IDJogo)
@@ -198,7 +270,6 @@ class MySQLWriter:
         ))
 
     def _insert_sound(self, cursor, doc, id_jogo):
-
         cursor.execute("""
             INSERT INTO Som
             (seq, Hora, Som, is_valid, IDJogo)
@@ -213,7 +284,6 @@ class MySQLWriter:
         ))
 
     def _insert_occupancy(self, cursor, doc, id_jogo):
-
         cursor.execute("""
             INSERT INTO OcupacaoLabirinto
             (IDJogo, Sala, NumeroMarsamisOdd, NumeroMarsamisEven)
@@ -228,10 +298,10 @@ class MySQLWriter:
             doc.get("even")
         ))
 
-    # ifecycle 
+    # Lifecycle 
 
     def start(self):
-        print("[MySQLWriter] A iniciar MQTT → MySQL (com confirmação)")
+        print("[MySQLWriter] A iniciar MQTT → MySQL (com buffer ordenado)")
         self._mqtt.loop_forever()
 
     def stop(self):
@@ -240,15 +310,3 @@ class MySQLWriter:
         self._mqtt.disconnect()
         self.mysql_conn.close()
         print("[MySQLWriter] stopped")
-
-    def _reconnect_mysql(self):
-
-        while True:
-            try:
-                print("[MySQLWriter] Reconnecting to MySQL...")
-                self.mysql_conn = self._conectar_mysql()
-                self.mysql_conn.autocommit = False
-                print("[MySQLWriter] MySQL reconnected")
-                return
-            except Exception:
-                time.sleep(3)
