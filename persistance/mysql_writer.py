@@ -178,6 +178,8 @@ class MySQLWriter:
             elif event_type == "occupancy":
                 print(f"[DEBUG] occupancy doc: {doc}")
                 self._insert_occupancy(cursor, doc, id_jogo)
+            elif event_type == "alert":
+                self._insert_alert(cursor, doc, id_jogo)    
             else:
                 print(f"[MySQLWriter] Tipo desconhecido: {event_type}")
                 self._publicar_confirmacao(seq, False)
@@ -236,6 +238,22 @@ class MySQLWriter:
             doc.get("is_valid", True),
             id_jogo
         ))
+
+    def _insert_alert(self, cursor, doc, id_jogo):
+        cursor.execute("""
+            INSERT INTO Mensagens
+            (Hora, Sala, Sensor, Leitura, TipoAlerta, Msg, HoraEscrita, IDJogo)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (
+            doc.get("timestamp"),
+            doc.get("sala"),
+            doc.get("sensor"),
+            doc.get("leitura"),
+            doc.get("tipo"),
+            doc.get("msg"),
+            datetime.now(),
+            id_jogo
+    ))    
 
     def _insert_temperature(self, cursor, doc, id_jogo):
         cursor.execute("""

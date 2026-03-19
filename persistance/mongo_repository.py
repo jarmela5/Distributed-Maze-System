@@ -13,6 +13,7 @@ class MongoRepository:
         self.sound_events       = self.db["sound_events"]
         self.movement_events    = self.db["movement_events"]
         self.room_occupancy     = self.db["room_occupancy"]
+        self.alert_events = self.db["alert_events"]
 
         self._create_indexes()
         print("[MongoDB] MongoRepository connected to", db_name)
@@ -31,6 +32,10 @@ class MongoRepository:
         self.room_occupancy.create_index("seq")
         self.room_occupancy.create_index("migrated")
         self.room_occupancy.create_index("room_id")
+        self.alert_events.create_index("seq")
+        self.alert_events.create_index("migrated")
+        self.alert_events.create_index("seq")
+        self.alert_events.create_index("migrated")
 
     def _next_seq(self):
         """Contador atómico global — garante ordem real de chegada das mensagens."""
@@ -98,6 +103,20 @@ class MongoRepository:
             }
 
             self.room_occupancy.insert_one(doc)
+
+    def save_alert(self, event: dict):
+        doc = {
+            "seq":       self._next_seq(),
+            "player":    event.get("player"),
+            "timestamp": event.get("timestamp", datetime.now()),
+            "sala":      event.get("sala"),
+            "sensor":    event.get("sensor"),
+            "leitura":   event.get("leitura"),
+            "tipo":      event.get("tipo"),
+            "msg":       event.get("msg"),
+            "migrated":  False,
+        }
+        self.alert_events.insert_one(doc)        
 
     # Métodos de suporte à migração
 

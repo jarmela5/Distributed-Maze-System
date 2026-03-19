@@ -35,8 +35,7 @@ def main():
         noise_config=noise_var
     )
 
-    event_processor = EventProcessor(state_engine, mongo_repo, decision_engine)
-
+    event_processor = EventProcessor(state_engine, mongo_repo, decision_engine, temp_var, noise_var)
     #  MigrationWorker: MongoDB → MQTT 
     migration_worker = MigrationWorker(mongo_repo, broker=broker, port=port, polling_interval=2)
     migration_thread = threading.Thread(target=migration_worker.run, daemon=True)

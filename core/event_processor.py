@@ -8,11 +8,12 @@ import re
 
 class EventProcessor:
 
-    def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository, decision_engine: DecisionEngine):
+    def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository, decision_engine: DecisionEngine, temp_config, noise_config):
         self.state_engine = stateEngine
         self.mongo_repo = mongo_repo
         self.decision_engine = decision_engine
-
+        self.temp_upper = temp_config["normal"] + temp_config["high_tol"]
+        self.noise_limit = noise_config["normal"] + noise_config["tolerance"]
 
     def process(self, topic, payload):
 
@@ -133,6 +134,16 @@ class EventProcessor:
         if self.state_engine.game_started:
             self.decision_engine.evaluate()
 
+        if not event.get("is_invalid") and value > self.temp_upper:
+            self.mongo_repo.save_alert({
+                "player":  player,
+                "sala":    None,
+                "sensor":  "temperatura",
+                "leitura": value,
+                "tipo":    "TemperaturaAlta",
+                "msg":     f"Temperatura {value} acima do limite {self.temp_upper}"
+            })    
+
 
     def _handle_sound(self, data, player):
 
@@ -158,6 +169,16 @@ class EventProcessor:
 
         if self.state_engine.game_started:
             self.decision_engine.evaluate()
+
+        if not event.get("is_invalid") and value > self.noise_limit:
+            self.mongo_repo.save_alert({
+                "player":  player,
+                "sala":    None,
+                "sensor":  "som",
+                "leitura": value,
+                "tipo":    "RuidoAlto",
+                "msg":     f"Ruído {value} acima do limite {self.noise_limit}"
+            })    
 
 
     def _parse_timestamp(self, timestamp):

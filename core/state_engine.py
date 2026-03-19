@@ -6,7 +6,10 @@ class StateEngine:
     def __init__(self, maze_graph):
 
         self.room_graph = maze_graph
-
+        self.pending_alerts = []
+        
+       
+        
         self.rooms = {}
 
         self.marsami_positions = {}

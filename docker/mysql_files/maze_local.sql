@@ -96,15 +96,6 @@ CREATE TABLE Mensagens (
 ) ENGINE=InnoDB;
 
 -- --------------------------------------------------------
--- Alertas
--- --------------------------------------------------------
-
-CREATE TABLE Alertas (
-  ID BIGINT PRIMARY KEY,
-  FOREIGN KEY (ID) REFERENCES Mensagens(ID) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- --------------------------------------------------------
 -- Utilizador
 -- --------------------------------------------------------
 

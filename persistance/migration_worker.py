@@ -15,7 +15,7 @@ class MigrationWorker:
     Só marca migrated: True após confirmação do MySQLWriter via pisid_migrate_confirm.
     """
 
-    COLLECTIONS = ["movement_events", "temperature_events", "sound_events", "room_occupancy"]
+    COLLECTIONS = ["movement_events", "temperature_events", "sound_events", "room_occupancy", "alert_events"]
 
     TYPE_MAP = {
         "movement_events":    "movement",
@@ -134,6 +134,8 @@ class MigrationWorker:
                 "marsami_id": doc.get("marsami_id"),
                 "status":     doc.get("status"),
                 "is_valid":   doc.get("is_valid", True),
+                "msg":       doc.get("msg"),
+
             })
         elif collection_name == "room_occupancy":
             payload.update({
