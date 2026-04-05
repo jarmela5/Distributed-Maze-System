@@ -36,13 +36,13 @@ CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN `p_Nome` VARCHAR(5
 
     START TRANSACTION;
 
-    
+    -- verificar se já existe
     IF EXISTS (SELECT 1 FROM Utilizador WHERE Username = p_Username) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Username já existe';
     END IF;
 
-    
+    -- criar utilizador MySQL
     SET @sql = CONCAT(
         'CREATE USER IF NOT EXISTS \'', p_Username, '\'@\'%\' IDENTIFIED BY \'', p_Password, '\''
     );
@@ -50,10 +50,10 @@ CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN `p_Nome` VARCHAR(5
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
 
-    
+    -- permissões diretas (substitui roles)
     IF LOWER(p_Tipo) = 'admin' THEN
 
-        
+        -- permissões na BD
         SET @sql2 = CONCAT(
             'GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
         );
@@ -62,7 +62,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN `p_Nome` VARCHAR(5
         EXECUTE stmt2;
         DEALLOCATE PREPARE stmt2;
 
-        
+        -- permissões globais (CRÍTICO para DROP USER)
         SET @sql3 = CONCAT(
             'GRANT CREATE USER ON *.* TO \'', p_Username, '\'@\'%\''
         );
@@ -73,7 +73,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN `p_Nome` VARCHAR(5
 
     ELSE
 
-        
+        -- user normal
         SET @sql2 = CONCAT(
             'GRANT SELECT, INSERT, UPDATE, EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
         );
@@ -84,10 +84,10 @@ CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN `p_Nome` VARCHAR(5
 
     END IF;
 
-    
+    -- aplicar privilégios
     FLUSH PRIVILEGES;
 
-    
+    -- inserir na tabela
     INSERT INTO Utilizador (Nome, Telemovel, Tipo, Email, DataNascimento, Equipa, Username)
     VALUES (p_Nome, p_Telemovel, p_Tipo, p_Email, p_DataNascimento, 6, p_Username);
 
@@ -112,7 +112,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `ApagarJogo` (IN `p_idJogo` INT)   BEGIN
 
     START TRANSACTION;
 
-    
+    -- obter utilizador atual
     SET v_username = SUBSTRING_INDEX(USER(), '@', 1);
 
     SELECT IDUtilizador, Tipo INTO v_idUtilizador, v_tipo
@@ -125,7 +125,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `ApagarJogo` (IN `p_idJogo` INT)   BEGIN
         SET MESSAGE_TEXT = 'Utilizador inválido';
     END IF;
 
-    
+    -- obter info do jogo
     SELECT IDUtilizador, Estado INTO v_owner, v_estado
     FROM Simulacao
     WHERE IDSimulacao = p_idJogo
@@ -136,19 +136,19 @@ CREATE DEFINER=`root`@`%` PROCEDURE `ApagarJogo` (IN `p_idJogo` INT)   BEGIN
         SET MESSAGE_TEXT = 'Jogo não existe';
     END IF;
 
-    
+    -- verificar permissões (dono OU admin)
     IF v_owner != v_idUtilizador AND v_tipo != 'admin' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Não tens permissão para apagar este jogo';
     END IF;
 
-    
+    -- regra opcional (mantive a tua)
     IF v_estado = 'Ativo' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Não é possível apagar um jogo ativo';
     END IF;
 
-    
+    -- apagar
     DELETE FROM Simulacao
     WHERE IDSimulacao = p_idJogo;
 
@@ -170,7 +170,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `ApagarUtilizador` (IN `p_username` VARCHAR(
 
     START TRANSACTION;
 
-    
+    -- utilizador atual
     SET v_current_user = SUBSTRING_INDEX(USER(), '@', 1);
 
     SELECT Tipo INTO v_tipo
@@ -178,19 +178,19 @@ CREATE DEFINER=`root`@`%` PROCEDURE `ApagarUtilizador` (IN `p_username` VARCHAR(
     WHERE Username = v_current_user
     LIMIT 1;
 
-    
+    -- validar admin
     IF v_tipo IS NULL OR LOWER(v_tipo) != 'admin' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Apenas administradores podem apagar utilizadores';
     END IF;
 
-    
+    -- impedir apagar-se a si próprio
     IF v_current_user = p_username THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Não podes apagar o teu próprio utilizador';
     END IF;
 
-    
+    -- validar existência
     IF NOT EXISTS (
         SELECT 1 FROM Utilizador WHERE Username = p_username
     ) THEN
@@ -198,11 +198,11 @@ CREATE DEFINER=`root`@`%` PROCEDURE `ApagarUtilizador` (IN `p_username` VARCHAR(
         SET MESSAGE_TEXT = 'Utilizador não existe';
     END IF;
 
-    
+    -- primeiro apagar da BD (seguro)
     DELETE FROM Utilizador
     WHERE Username = p_username;
 
-    
+    -- depois apagar user MySQL
     SET @sql = CONCAT('DROP USER IF EXISTS \'', p_username, '\'@\'%\'');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
@@ -226,13 +226,13 @@ CREATE DEFINER=`root`@`%` PROCEDURE `CriarJogo` (IN `p_equipa` INT, IN `p_descri
 
     START TRANSACTION;
 
-    
+    -- normalizar timestamp
     SET p_dataHoraInicio = COALESCE(p_dataHoraInicio, NOW());
 
-    
+    -- obter username do MySQL
     SET v_username = SUBSTRING_INDEX(USER(), '@', 1);
 
-    
+    -- obter ID do utilizador
     SELECT IDUtilizador INTO v_idUtilizador
     FROM Utilizador
     WHERE username = v_username
@@ -243,7 +243,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `CriarJogo` (IN `p_equipa` INT, IN `p_descri
         SET MESSAGE_TEXT = 'Utilizador não registado na aplicação';
     END IF;
 
-    
+    -- validar timestamp duplicado
     IF EXISTS (
         SELECT 1 FROM Simulacao
         WHERE DataHoraInicio = p_dataHoraInicio
@@ -252,7 +252,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `CriarJogo` (IN `p_equipa` INT, IN `p_descri
         SET MESSAGE_TEXT = 'Já existe uma simulação com este timestamp';
     END IF;
 
-    
+    -- insert
     INSERT INTO Simulacao (
         Descricao,
         Equipa,
@@ -290,7 +290,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EditarJogo` (IN `p_idJogo` INT, IN `p_descr
 
     START TRANSACTION;
 
-    
+    -- obter utilizador atual
     SET v_username = SUBSTRING_INDEX(USER(), '@', 1);
 
     SELECT IDUtilizador, Tipo INTO v_idUtilizador, v_tipo
@@ -303,7 +303,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EditarJogo` (IN `p_idJogo` INT, IN `p_descr
         SET MESSAGE_TEXT = 'Utilizador inválido';
     END IF;
 
-    
+    -- obter dono do jogo
     SELECT IDUtilizador INTO v_owner
     FROM Simulacao
     WHERE IDSimulacao = p_idJogo
@@ -314,13 +314,13 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EditarJogo` (IN `p_idJogo` INT, IN `p_descr
         SET MESSAGE_TEXT = 'Jogo não existe';
     END IF;
 
-    
+    -- verificar permissões (dono OU admin)
     IF v_owner != v_idUtilizador AND v_tipo != 'admin' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Não tens permissão para editar este jogo';
     END IF;
 
-    
+    -- validar timestamp duplicado (se fornecido)
     IF p_dataHoraInicio IS NOT NULL AND EXISTS (
         SELECT 1 FROM Simulacao
         WHERE DataHoraInicio = p_dataHoraInicio
@@ -330,7 +330,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EditarJogo` (IN `p_idJogo` INT, IN `p_descr
         SET MESSAGE_TEXT = 'Já existe uma simulação com este timestamp';
     END IF;
 
-    
+    -- update
     UPDATE Simulacao
     SET
         Descricao = COALESCE(NULLIF(p_descricao, ''), Descricao),
