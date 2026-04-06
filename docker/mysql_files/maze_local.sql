@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql
--- Tempo de geração: 04-Abr-2026 às 19:01
+-- Tempo de geração: 06-Abr-2026 às 16:45
 -- Versão do servidor: 8.0.45
 -- versão do PHP: 8.3.30
 
@@ -436,6 +436,7 @@ CREATE TABLE `Mensagens` (
   `Msg` varchar(100) DEFAULT NULL,
   `HoraEscrita` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `IDJogo` int NOT NULL,
+  `seq` bigint NOT NULL,
   `is_active` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -545,6 +546,7 @@ ALTER TABLE `MedicoesPassagens`
 --
 ALTER TABLE `Mensagens`
   ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `uq_mensagens_seq_jogo` (`seq`,`IDJogo`),
   ADD KEY `IDJogo` (`IDJogo`);
 
 --
