@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql
--- Tempo de geração: 06-Abr-2026 às 16:45
+-- Tempo de geração: 07-Abr-2026 às 18:36
 -- Versão do servidor: 8.0.45
 -- versão do PHP: 8.3.30
 
@@ -415,7 +415,6 @@ CREATE TABLE `MedicoesPassagens` (
   `SalaDestino` int DEFAULT NULL,
   `Marsami` int DEFAULT NULL,
   `Status` int DEFAULT NULL,
-  `is_valid` tinyint(1) DEFAULT '1',
   `IDJogo` int NOT NULL,
   `is_active` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -481,7 +480,6 @@ CREATE TABLE `Som` (
   `seq` bigint NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Som` decimal(6,2) DEFAULT NULL,
-  `is_valid` tinyint(1) DEFAULT '1',
   `IDJogo` int NOT NULL,
   `is_active` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -497,7 +495,6 @@ CREATE TABLE `Temperatura` (
   `seq` bigint NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Temperatura` decimal(6,2) DEFAULT NULL,
-  `is_valid` tinyint(1) DEFAULT '1',
   `IDJogo` int NOT NULL,
   `is_active` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
