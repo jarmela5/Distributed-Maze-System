@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql
--- Tempo de geração: 07-Abr-2026 às 18:36
+-- Tempo de geração: 21-Abr-2026 às 12:50
 -- Versão do servidor: 8.0.45
 -- versão do PHP: 8.3.30
 
@@ -466,7 +466,9 @@ CREATE TABLE `Simulacao` (
   `DataHoraInicio` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `Estado` varchar(20) DEFAULT 'Ativo',
   `IDUtilizador` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL
+  `is_active` tinyint(1) NOT NULL,
+  `var_temp` int NOT NULL,
+  `var_som` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -481,7 +483,8 @@ CREATE TABLE `Som` (
   `Hora` timestamp NULL DEFAULT NULL,
   `Som` decimal(6,2) DEFAULT NULL,
   `IDJogo` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL
+  `is_active` tinyint(1) NOT NULL,
+  `is_valid` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -496,7 +499,8 @@ CREATE TABLE `Temperatura` (
   `Hora` timestamp NULL DEFAULT NULL,
   `Temperatura` decimal(6,2) DEFAULT NULL,
   `IDJogo` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL
+  `is_active` tinyint(1) NOT NULL,
+  `is_valid` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -511,7 +515,6 @@ CREATE TABLE `Utilizador` (
   `Telemovel` varchar(12) DEFAULT NULL,
   `Tipo` varchar(10) DEFAULT NULL,
   `Email` varchar(50) DEFAULT NULL,
-  `Password` varchar(255) DEFAULT NULL,
   `DataNascimento` date DEFAULT NULL,
   `Equipa` int NOT NULL,
   `username` varchar(50) NOT NULL,
@@ -522,9 +525,9 @@ CREATE TABLE `Utilizador` (
 -- Extraindo dados da tabela `Utilizador`
 --
 
-INSERT INTO `Utilizador` (`IDUtilizador`, `Nome`, `Telemovel`, `Tipo`, `Email`, `Password`, `DataNascimento`, `Equipa`, `username`, `is_active`) VALUES
-(16, 'admin', '999999999', 'admin', 'admin@email.pt', NULL, '1999-01-01', 6, 'admin', 0),
-(18, 'maria', '123456789', 'user', 'maria@email.pt', NULL, '1999-01-01', 6, 'maria', 0);
+INSERT INTO `Utilizador` (`IDUtilizador`, `Nome`, `Telemovel`, `Tipo`, `Email`, `DataNascimento`, `Equipa`, `username`, `is_active`) VALUES
+(16, 'admin', '999999999', 'admin', 'admin@email.pt', '1999-01-01', 6, 'admin', 0),
+(18, 'maria', '123456789', 'user', 'maria@email.pt', '1999-01-01', 6, 'maria', 0);
 
 --
 -- Índices para tabelas despejadas
