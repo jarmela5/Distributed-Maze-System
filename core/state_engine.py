@@ -3,24 +3,23 @@ from datetime import datetime
 
 class StateEngine:
 
-    def __init__(self, maze_graph):
+    def __init__(self, maze_graph, temp_threshold, sound_threshold):
 
         self.room_graph = maze_graph
-        self.pending_alerts = []
-        
-       
-        
+
         self.rooms = {}
-
         self.marsami_positions = {}
-
         self.marsami_types = {}
 
-        self.last_temp_value = None
-        self.last_sound_value = None
+        # Para média acumulada
+        self.temp_sum = 0
+        self.temp_count = 0
 
-        self.MAX_TEMP_DELTA = 5
-        self.MAX_SOUND_DELTA = 10
+        self.sound_sum = 0
+        self.sound_count = 0
+
+        self.temp_threshold = temp_threshold
+        self.sound_threshold = sound_threshold
 
         self.game_started = False
 
@@ -47,13 +46,11 @@ class StateEngine:
             "status": status,
             "timestamp": datetime.now(),
             "current_room": None,
-            "is_invalid": False,
+            "is_valid": True,
             "reason": None
         }
 
-        changed_rooms = []
-
-        # Entrada inicial no labirinto
+        # Entrada inicial
         if origin == 0 and destiny != 0:
 
             self._ensure_room_exists(destiny)
@@ -64,10 +61,7 @@ class StateEngine:
             self.marsami_positions[marsami_id] = destiny
             event["current_room"] = destiny
 
-            changed_rooms = [destiny]
-
-            return event, changed_rooms
-
+            return event, [destiny]
 
         # Movimento entre salas
         if origin != 0 and destiny != 0:
@@ -75,24 +69,24 @@ class StateEngine:
             self.game_started = True
 
             if marsami_id not in self.marsami_positions:
-                event["is_invalid"] = True
+                event["is_valid"] = False
                 event["reason"] = "Unknown current position"
                 return event, []
 
             current_room = self.marsami_positions[marsami_id]
 
             if current_room != origin:
-                event["is_invalid"] = True
+                event["is_valid"] = False
                 event["reason"] = "Origin mismatch"
                 return event, []
 
             if origin not in self.room_graph:
-                event["is_invalid"] = True
+                event["is_valid"] = False
                 event["reason"] = "Origin not in graph"
                 return event, []
 
             if destiny not in self.room_graph[origin]:
-                event["is_invalid"] = True
+                event["is_valid"] = False
                 event["reason"] = "Invalid corridor"
                 return event, []
 
@@ -108,19 +102,20 @@ class StateEngine:
             self.marsami_positions[marsami_id] = destiny
             event["current_room"] = destiny
 
-            changed_rooms = [origin, destiny]
-
-            return event, changed_rooms
-
+            return event, [origin, destiny]
 
         # Fim da simulação
         if origin == 0 and destiny == 0 and status == 2:
 
             self.game_started = False
-
             event["current_room"] = self.marsami_positions.get(marsami_id)
 
             return event, []
+
+        # Caso inválido
+        event["is_valid"] = False
+        event["reason"] = "Invalid movement pattern"
+        return event, []
 
 
     def update_temperature(self, timestamp, temp):
@@ -128,22 +123,35 @@ class StateEngine:
         event = {
             "timestamp": timestamp,
             "value": temp,
-            "is_invalid": False,
+            "is_valid": True,
             "reason": None
         }
 
-        if self.last_temp_value is None:
-            self.last_temp_value = temp
+        # Timestamp inválido
+        if timestamp is None:
+            event["is_valid"] = False
+            event["reason"] = "Invalid timestamp"
             return event
 
-        delta = abs(temp - self.last_temp_value)
-
-        if delta > self.MAX_TEMP_DELTA:
-            event["is_invalid"] = True
-            event["reason"] = "Temperature spike"
+        # Primeira leitura válida
+        if self.temp_count == 0:
+            self.temp_sum += temp
+            self.temp_count += 1
             return event
 
-        self.last_temp_value = temp
+        media = self.temp_sum / self.temp_count
+        delta = abs(temp - media)
+
+        # Outlier
+        if delta > self.temp_threshold:
+            event["is_valid"] = False
+            event["reason"] = "Temperature outlier"
+            return event
+
+        # Atualiza média só com valores válidos
+        self.temp_sum += temp
+        self.temp_count += 1
+
         return event
 
 
@@ -152,20 +160,33 @@ class StateEngine:
         event = {
             "timestamp": timestamp,
             "value": sound,
-            "is_invalid": False,
+            "is_valid": True,
             "reason": None
         }
 
-        if self.last_sound_value is None:
-            self.last_sound_value = sound
+        # Timestamp inválido
+        if timestamp is None:
+            event["is_valid"] = False
+            event["reason"] = "Invalid timestamp"
             return event
 
-        delta = abs(sound - self.last_sound_value)
-
-        if delta > self.MAX_SOUND_DELTA:
-            event["is_invalid"] = True
-            event["reason"] = "Sound spike"
+        # Primeira leitura válida
+        if self.sound_count == 0:
+            self.sound_sum += sound
+            self.sound_count += 1
             return event
 
-        self.last_sound_value = sound
+        media = self.sound_sum / self.sound_count
+        delta = abs(sound - media)
+
+        # Outlier
+        if delta > self.sound_threshold:
+            event["is_valid"] = False
+            event["reason"] = "Sound outlier"
+            return event
+
+        # Atualiza média só com valores válidos
+        self.sound_sum += sound
+        self.sound_count += 1
+
         return event

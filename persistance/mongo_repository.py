@@ -51,9 +51,9 @@ class MongoRepository:
         doc = {
             "seq":        self._next_seq(),
             "player":     event.get("player"),
-            "timestamp":  event.get("timestamp", datetime.now()),
+            "timestamp":  event.get("timestamp"),
             "value":      event.get("value"),
-            "is_valid":   not event.get("is_invalid", False),
+            "is_valid":   event.get("is_valid", True),
             "reason":     event.get("reason"),
             "migrated":   False,
         }
@@ -63,9 +63,9 @@ class MongoRepository:
         doc = {
             "seq":        self._next_seq(),
             "player":     event.get("player"),
-            "timestamp":  event.get("timestamp", datetime.now()),
+            "timestamp":  event.get("timestamp"),
             "value":      event.get("value"),
-            "is_valid":   not event.get("is_invalid", False),
+            "is_valid":   event.get("is_valid", True),
             "reason":     event.get("reason"),
             "migrated":   False,
         }
@@ -79,14 +79,14 @@ class MongoRepository:
             "origin":     event.get("origin"),
             "destiny":    event.get("destiny"),
             "status":     event.get("status"),
-            "is_valid":   not event.get("is_invalid", False),
+            "is_valid":   event.get("is_valid", True),
             "reason":     event.get("reason"),
-            "timestamp":  event.get("timestamp", datetime.now()),
+            "timestamp":  event.get("timestamp"),
             "migrated":   False,
         }
         self.movement_events.insert_one(doc)
 
-    def save_room_occupancy(self, changed_rooms, rooms):
+    def save_room_occupancy(self, changed_rooms, rooms, timestamp):
 
         for room_id in changed_rooms:
 
@@ -98,7 +98,7 @@ class MongoRepository:
                 "odd": data["odd"],
                 "even": data["even"],
                 "total": data["total"],
-                "timestamp": datetime.now(),
+                "timestamp": timestamp,
                 "migrated": False
             }
 

@@ -416,7 +416,7 @@ CREATE TABLE `MedicoesPassagens` (
   `Marsami` int DEFAULT NULL,
   `Status` int DEFAULT NULL,
   `IDJogo` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -436,7 +436,7 @@ CREATE TABLE `Mensagens` (
   `HoraEscrita` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `IDJogo` int NOT NULL,
   `seq` bigint NOT NULL,
-  `is_active` tinyint(1) NOT NULL
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -450,7 +450,7 @@ CREATE TABLE `OcupacaoLabirinto` (
   `Sala` int NOT NULL,
   `NumeroMarsamisOdd` int DEFAULT '0',
   `NumeroMarsamisEven` int DEFAULT '0',
-  `is_active` tinyint(1) NOT NULL
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -466,9 +466,9 @@ CREATE TABLE `Simulacao` (
   `DataHoraInicio` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `Estado` varchar(20) DEFAULT 'Ativo',
   `IDUtilizador` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL,
-  `var_temp` int NOT NULL,
-  `var_som` int NOT NULL
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `OutlierTempThreshold` DECIMAL(6,2) NOT NULL,
+  `OutlierNoiseThreshold` DECIMAL(6,2) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -483,7 +483,7 @@ CREATE TABLE `Som` (
   `Hora` timestamp NULL DEFAULT NULL,
   `Som` decimal(6,2) DEFAULT NULL,
   `IDJogo` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `is_valid` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -499,7 +499,7 @@ CREATE TABLE `Temperatura` (
   `Hora` timestamp NULL DEFAULT NULL,
   `Temperatura` decimal(6,2) DEFAULT NULL,
   `IDJogo` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `is_valid` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -509,16 +509,17 @@ CREATE TABLE `Temperatura` (
 -- Estrutura da tabela `Utilizador`
 --
 
+-- MUDAR O TIPO PARA ENUM
 CREATE TABLE `Utilizador` (
   `IDUtilizador` int NOT NULL,
   `Nome` varchar(100) NOT NULL,
   `Telemovel` varchar(12) DEFAULT NULL,
-  `Tipo` varchar(10) DEFAULT NULL,
+  `Tipo` varchar(10) DEFAULT NULL,  
   `Email` varchar(50) DEFAULT NULL,
   `DataNascimento` date DEFAULT NULL,
   `Equipa` int NOT NULL,
   `username` varchar(50) NOT NULL,
-  `is_active` tinyint(1) NOT NULL
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
@@ -528,6 +529,21 @@ CREATE TABLE `Utilizador` (
 INSERT INTO `Utilizador` (`IDUtilizador`, `Nome`, `Telemovel`, `Tipo`, `Email`, `DataNascimento`, `Equipa`, `username`, `is_active`) VALUES
 (16, 'admin', '999999999', 'admin', 'admin@email.pt', '1999-01-01', 6, 'admin', 0),
 (18, 'maria', '123456789', 'user', 'maria@email.pt', '1999-01-01', 6, 'maria', 0);
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura da tabela `ConfiguracaoSistema`
+--
+
+CREATE TABLE `ConfiguracaoSistema` (
+    `ID` INT PRIMARY KEY AUTO_INCREMENT,
+    `DefaultTempThreshold` DECIMAL(6,2) NOT NULL,
+    `DefaultNoiseThreshold` DECIMAL(6,2) NOT NULL,
+    `DataAtualizacao` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT INTO 'ConfiguracaoSistema' ('DefaultTempThreshold', 'DefaultNoiseThreshold') VALUES (2.5, 5.0);
 
 --
 -- Índices para tabelas despejadas
