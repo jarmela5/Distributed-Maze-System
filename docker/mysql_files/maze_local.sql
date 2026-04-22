@@ -543,7 +543,8 @@ CREATE TABLE `ConfiguracaoSistema` (
     `DataAtualizacao` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-INSERT INTO 'ConfiguracaoSistema' ('DefaultTempThreshold', 'DefaultNoiseThreshold') VALUES (2.5, 5.0);
+INSERT INTO ConfiguracaoSistema (DefaultTempThreshold, DefaultNoiseThreshold)
+VALUES (2.5, 5.0);
 
 --
 -- Índices para tabelas despejadas
