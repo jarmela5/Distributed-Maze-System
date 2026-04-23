@@ -40,13 +40,13 @@ def main():
     migration_worker = MigrationWorker(mongo_repo, broker=broker, port=port, polling_interval=2)
     migration_thread = threading.Thread(target=migration_worker.run, daemon=True)
     migration_thread.start()
-    print("[Main] MigrationWorker iniciado em thread separada")
+    print("[Main] MigrationWorker iniciado numa thread separada")
 
     # MySQLWriter: MQTT → MySQL 
     mysql_writer = MySQLWriter(broker=broker, port=port)
     mysql_thread = threading.Thread(target=mysql_writer.start, daemon=True)
     mysql_thread.start()
-    print("[Main] MySQLWriter iniciado em thread separada")
+    print("[Main] MySQLWriter iniciado numa thread separada")
     
 
     mqtt_listener = MQTTListener(
