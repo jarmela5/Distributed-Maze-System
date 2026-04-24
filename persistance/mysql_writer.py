@@ -49,7 +49,7 @@ class MySQLWriter:
         )
         conn.autocommit = False
         return conn
-
+# SIMULAÇÂO NÂO VAI SER CRIADA AQUI MAS SIM NO PHP. ISTO NÂO VAI SER PRECISO
     def _create_simulation(self):
         # reutiliza jogo ativo se já existir
         cursor = self.mysql_conn.cursor()

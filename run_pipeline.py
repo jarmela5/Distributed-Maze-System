@@ -11,6 +11,10 @@ from persistance.mysql_writer import MySQLWriter
 
 def main():
 
+    # APENAS PARA TESTE
+    TEMP_TRESHOLD = 5
+    SOUND_TRESHOLD = 5
+
     print("Starting Distributed Maze Pipeline")
 
     config_manager = ConfigManager()
@@ -22,7 +26,7 @@ def main():
     broker = "broker.emqx.io"
     port   = 1883
 
-    state_engine = StateEngine(maze_graph)
+    state_engine = StateEngine(maze_graph, TEMP_TRESHOLD, SOUND_TRESHOLD)
 
     mongo_repo = MongoRepository()
 
