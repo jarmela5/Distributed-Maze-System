@@ -3,7 +3,7 @@ from datetime import datetime
 
 class StateEngine:
 
-    def __init__(self, maze_graph, temp_threshold, sound_threshold):
+    def __init__(self, maze_graph, temp_threshold=30, sound_threshold=70):
 
         self.room_graph = maze_graph
 
@@ -22,6 +22,12 @@ class StateEngine:
         self.sound_threshold = sound_threshold
 
         self.game_started = False
+
+        self.last_temp_value = None
+        self.last_temp_timestamp = None
+
+        self.last_sound_value = None
+        self.last_sound_timestamp = None
 
 
     def _ensure_room_exists(self, room_id):
@@ -127,30 +133,31 @@ class StateEngine:
             "reason": None
         }
 
-        # Timestamp inválido
         if timestamp is None:
             event["is_valid"] = False
             event["reason"] = "Invalid timestamp"
             return event
 
-        # Primeira leitura válida
         if self.temp_count == 0:
             self.temp_sum += temp
             self.temp_count += 1
+            self.last_temp_value = temp
+            self.last_temp_timestamp = timestamp
             return event
 
         media = self.temp_sum / self.temp_count
         delta = abs(temp - media)
 
-        # Outlier
         if delta > self.temp_threshold:
             event["is_valid"] = False
             event["reason"] = "Temperature outlier"
             return event
 
-        # Atualiza média só com valores válidos
         self.temp_sum += temp
         self.temp_count += 1
+
+        self.last_temp_value = temp
+        self.last_temp_timestamp = timestamp
 
         return event
 
@@ -188,5 +195,8 @@ class StateEngine:
         # Atualiza média só com valores válidos
         self.sound_sum += sound
         self.sound_count += 1
+
+        self.last_sound_value = sound
+        self.last_sound_timestamp = timestamp
 
         return event

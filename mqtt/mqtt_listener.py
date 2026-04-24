@@ -39,12 +39,11 @@ class MQTTListener:
 
 
     def on_message(self, client, userdata, msg):
-
         payload = msg.payload.decode()
 
-        print("\n[RECEIVED]")
-        print("Topic:", msg.topic)
-        print("Payload:", payload)
+        print("\n[DEBUG MQTT]")
+        print("TOPIC:", msg.topic)
+        print("PAYLOAD:", payload)
 
         self.event_processor.process(msg.topic, payload)
 
