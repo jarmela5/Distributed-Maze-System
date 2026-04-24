@@ -123,7 +123,7 @@ BEGIN
         DEALLOCATE PREPARE stmt;
         -- Ocupacao
         SET @sql = CONCAT(
-            'GRANT SELECT, INSERT ON maze_local.OcupacaoLabirinto TO \'', p_Username, '\'@\'%\''
+            'GRANT SELECT, INSERT, UPDATE ON maze_local.OcupacaoLabirinto TO \'', p_Username, '\'@\'%\''
         );
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
@@ -131,6 +131,22 @@ BEGIN
         -- Mensagens
         SET @sql = CONCAT(
             'GRANT SELECT, INSERT ON maze_local.Mensagens TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+        -- Simulacao
+        SET @sql = CONCAT(
+            'GRANT SELECT, INSERT ON maze_local.Simulacao TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+        -- execute procedures ISTO É PARA APAGAR QUANDO PHP FUNCIONAR
+        SET @sql = CONCAT(
+            'GRANT EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
         );
         PREPARE stmt FROM @sql;
         EXECUTE stmt;

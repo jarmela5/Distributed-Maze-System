@@ -17,13 +17,13 @@ class MySQLWriter:
         self._running = True
         self.simulation_id = self._create_simulation()
 
-        # buffer ordenado por seq
+        # buffer ordenado + controlo de duplicados
         self._buffer = []
+        self._seen = set()
 
-        # MQTT
         self._mqtt = mqtt.Client(
             client_id="mysql_writer",
-            clean_session=False
+            clean_session=True
         )
 
         self._mqtt.on_connect = self._on_connect
@@ -33,59 +33,49 @@ class MySQLWriter:
         print("[MySQLWriter] CONNECTING TO BROKER...")
         self._mqtt.connect(broker, port)
 
-    #  MYSQL 
-
     def _conectar_mysql(self):
         conn = mysql.connector.connect(
-            user='root',
+            user='software',
             host='localhost',
             database='maze_local',
-            passwd='root'
+            passwd='software'
         )
         conn.autocommit = False
         return conn
 
-    #  SIMULAÇÃO 
-
     def _create_simulation(self):
         cursor = self.mysql_conn.cursor()
+
         cursor.execute("SELECT IDSimulacao FROM Simulacao WHERE Estado='Ativo' LIMIT 1")
         result = cursor.fetchone()
-        cursor.close()
 
         if result:
+            cursor.close()
             return result[0]
 
-        cursor = self.mysql_conn.cursor()
+        args = [
+            6,
+            "Simulação automática",
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Ativo",
+            0
+        ]
 
-        dados = json.dumps({
-            "Email": "system",
-            "StartTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "Descricao": "Simulação iniciada automaticamente"
-        })
-
-        args = [dados, 0]
         result = cursor.callproc("CriarJogo", args)
-        simulation_id = result[1]
+        simulation_id = result[4]
 
-        self.mysql_conn.commit()
-        cursor.close()
-
-        cursor = self.mysql_conn.cursor()
-        cursor.callproc("IniciarJogo", [simulation_id])
         self.mysql_conn.commit()
         cursor.close()
 
         return simulation_id
 
-    #  MQTT 
+    # MQTT
 
     def _on_connect(self, client, userdata, flags, rc):
         print(f"[MySQLWriter] CONNECT rc={rc}")
 
         if rc == 0:
             client.subscribe(self.TOPIC, qos=1)
-            print(f"[MySQLWriter] Subscribed to {self.TOPIC}")
 
     def _on_disconnect(self, client, userdata, rc):
         print("[MySQLWriter] Desconectado — a reconectar...")
@@ -93,31 +83,24 @@ class MySQLWriter:
         while True:
             try:
                 client.reconnect()
-                print("[MySQLWriter] Reconectado")
                 break
             except:
                 time.sleep(3)
 
     def _on_message(self, client, userdata, msg):
         try:
-            raw = msg.payload.decode()
-            print("[MySQLWriter] MQTT RECEIVED:", raw)
-
-            doc = json.loads(raw)
+            doc = json.loads(msg.payload.decode())
             seq = doc.get("seq")
 
             if seq is None:
-                print("[MySQLWriter] MSG sem seq ignorada")
                 return
 
-            if not any(s == seq for s, _ in self._buffer):
+            if seq not in self._seen:
                 heapq.heappush(self._buffer, (seq, doc))
-                print(f"[MySQLWriter] buffered seq={seq}")
+                self._seen.add(seq)
 
         except Exception as e:
             print(f"[MySQLWriter] MQTT error: {e}")
-
-    #  CONFIRMAÇÃO 
 
     def _publicar_confirmacao(self, seq, success):
         self._mqtt.publish(
@@ -126,31 +109,19 @@ class MySQLWriter:
             qos=1
         )
 
-    #  PROCESSAMENTO 
-
     def _process_buffer(self):
-        """
-        Processa por ordem crescente de seq,
-        mas sem exigir sequência perfeita.
-        """
-
         while self._buffer:
             seq, doc = heapq.heappop(self._buffer)
             self._inserir(seq, doc)
 
-    #  INSERT PRINCIPAL 
-
     def _inserir(self, seq, doc):
-
-        print(f"[MySQLWriter] INSERT START seq={seq}, type={doc.get('type')}")
 
         cursor = None
 
         try:
+            cursor = self.mysql_conn.cursor()
             event_type = doc.get("type")
             id_jogo = self.simulation_id
-
-            cursor = self.mysql_conn.cursor()
 
             if event_type == "movement":
                 self._insert_movement(cursor, doc, id_jogo)
@@ -168,16 +139,20 @@ class MySQLWriter:
                 self._insert_alert(cursor, doc, id_jogo)
 
             else:
-                print(f"[MySQLWriter] TIPO DESCONHECIDO: {event_type}")
                 self._publicar_confirmacao(seq, False)
                 return
 
             self.mysql_conn.commit()
             self._publicar_confirmacao(seq, True)
 
-            print(f"[MySQLWriter] OK type={event_type} seq={seq}")
-
         except mysql.connector.Error as e:
+
+            # DUPLICATE KEY → tratar como sucesso
+            if e.errno == 1062:
+                print(f"[DUPLICATE] seq={seq}")
+                self._publicar_confirmacao(seq, True)
+                return
+
             print(f"[MySQLWriter ERROR] seq={seq}: {e}")
 
             try:
@@ -191,14 +166,13 @@ class MySQLWriter:
             if cursor:
                 cursor.close()
 
-    #  INSERTS MYSQL 
+    # INSERTS
 
     def _insert_movement(self, cursor, doc, id_jogo):
         cursor.execute("""
             INSERT INTO MedicoesPassagens
             (seq, Hora, SalaOrigem, SalaDestino, Marsami, Status, is_valid, IDJogo)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-            ON DUPLICATE KEY UPDATE IDJogo = VALUES(IDJogo)
         """, (
             doc.get("seq"),
             doc.get("timestamp"),
@@ -215,7 +189,6 @@ class MySQLWriter:
             INSERT INTO Temperatura
             (seq, Hora, Temperatura, is_valid, IDJogo)
             VALUES (%s,%s,%s,%s,%s)
-            ON DUPLICATE KEY UPDATE Temperatura = VALUES(Temperatura)
         """, (
             doc.get("seq"),
             doc.get("timestamp"),
@@ -229,7 +202,6 @@ class MySQLWriter:
             INSERT INTO Som
             (seq, Hora, Som, is_valid, IDJogo)
             VALUES (%s,%s,%s,%s,%s)
-            ON DUPLICATE KEY UPDATE Som = VALUES(Som)
         """, (
             doc.get("seq"),
             doc.get("timestamp"),
@@ -269,11 +241,7 @@ class MySQLWriter:
             id_jogo
         ))
 
-    #  MAIN LOOP 
-
     def start(self):
-        print("[MySQLWriter] iniciado")
-
         self._mqtt.loop_start()
 
         while self._running:
@@ -285,4 +253,3 @@ class MySQLWriter:
         self._mqtt.loop_stop()
         self._mqtt.disconnect()
         self.mysql_conn.close()
-        print("[MySQLWriter] stopped")

@@ -3,7 +3,7 @@ from datetime import datetime
 
 class StateEngine:
 
-    def __init__(self, maze_graph, temp_threshold=30, sound_threshold=70):
+    def __init__(self, maze_graph, temp_threshold, sound_threshold):
 
         self.room_graph = maze_graph
 

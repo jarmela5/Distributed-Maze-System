@@ -12,8 +12,8 @@ from persistance.mysql_writer import MySQLWriter
 def main():
 
     # APENAS PARA TESTE
-    TEMP_TRESHOLD = 5
-    SOUND_TRESHOLD = 5
+    TEMP_TRESHOLD = 15
+    SOUND_TRESHOLD = 15
 
     print("Starting Distributed Maze Pipeline")
 

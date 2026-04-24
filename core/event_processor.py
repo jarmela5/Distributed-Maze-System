@@ -184,7 +184,6 @@ class EventProcessor:
 
         if not timestamp:
             return None
-
         try:
             return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
         except Exception:
