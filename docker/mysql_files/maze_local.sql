@@ -493,7 +493,8 @@ CREATE TABLE `MedicoesPassagens` (
   `Marsami` int DEFAULT NULL,
   `Status` int DEFAULT NULL,
   `IDJogo` int NOT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_valid` tinyint(1) NOT NULL DEFAULT 1 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------

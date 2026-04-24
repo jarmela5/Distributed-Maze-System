@@ -26,17 +26,17 @@ class EventProcessor:
         data = self._normalize_keys(data)
         player = self._extract_player(topic)
 
-        if "mazemov" in topic:
+        if topic.startswith("pisid_mazemov"):
             self._handle_movement(data, player)
 
-        elif "mazetemp" in topic:
+        elif topic.startswith("pisid_mazetemp"):
             self._handle_temperature(data, player)
 
-        elif "mazesound" in topic:
+        elif topic.startswith("pisid_mazesound"):
             self._handle_sound(data, player)
 
         else:
-            print("[WARNING] Unknown topic. Ignored.")
+            print("[WARNING] Unknown topic:", topic)
 
 
     def _normalize_keys(self, data):

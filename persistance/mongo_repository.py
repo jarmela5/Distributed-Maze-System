@@ -34,8 +34,7 @@ class MongoRepository:
         self.room_occupancy.create_index("room_id")
         self.alert_events.create_index("seq")
         self.alert_events.create_index("migrated")
-        self.alert_events.create_index("seq")
-        self.alert_events.create_index("migrated")
+        
 
     def _next_seq(self):
         """Contador atómico global — garante ordem real de chegada das mensagens."""
@@ -142,8 +141,22 @@ class MongoRepository:
         collections = (
             [self.db[collection_name]]
             if collection_name
-            else [self.temperature_events, self.sound_events, self.movement_events]
+            else [
+                self.temperature_events,
+                self.sound_events,
+                self.movement_events,
+                self.room_occupancy,
+                self.alert_events
+            ]
         )
+
         for col in collections:
-            result = col.update_many({}, {"$set": {"migrated": False}})
-            print(f"[RESET] {col.name}: {result.modified_count} documentos repostos")
+            result = col.update_many(
+                {},
+                {"$set": {"migrated": False}}
+            )
+
+            print(
+                f"[RESET] {col.name}: "
+                f"{result.modified_count} documentos repostos"
+            )
