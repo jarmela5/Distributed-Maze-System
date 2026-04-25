@@ -64,9 +64,10 @@ class MQTTListener:
 
 
     def start(self):
-
         print("Connecting to broker:", self.broker)
-
         self.client.connect(self.broker, self.port, 60)
+        self.client.loop_start()
 
-        self.client.loop_forever()
+    def stop(self):
+        self.client.loop_stop()
+        self.client.disconnect()

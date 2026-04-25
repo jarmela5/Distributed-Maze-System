@@ -32,6 +32,7 @@ class MySQLWriter:
 
         print("[MySQLWriter] CONNECTING TO BROKER...")
         self._mqtt.connect(broker, port)
+        self._mqtt.loop_start()
 
     def _conectar_mysql(self):
         conn = mysql.connector.connect(
@@ -228,9 +229,10 @@ class MySQLWriter:
     def _insert_alert(self, cursor, doc, id_jogo):
         cursor.execute("""
             INSERT INTO Mensagens
-            (Hora, Sala, Sensor, Leitura, TipoAlerta, Msg, HoraEscrita, IDJogo)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            (seq, Hora, Sala, Sensor, Leitura, TipoAlerta, Msg, HoraEscrita, IDJogo)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
+            doc.get("seq"),
             doc.get("timestamp"),
             doc.get("sala"),
             doc.get("sensor"),
