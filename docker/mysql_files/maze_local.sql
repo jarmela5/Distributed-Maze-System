@@ -523,7 +523,7 @@ CREATE TABLE `Mensagens` (
   `ID` bigint NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Sala` int DEFAULT NULL,
-  `Sensor` varchar(10) DEFAULT NULL,
+  `Sensor` varchar(15) DEFAULT NULL,
   `Leitura` decimal(6,2) DEFAULT NULL,
   `TipoAlerta` varchar(50) DEFAULT NULL,
   `Msg` varchar(100) DEFAULT NULL,
