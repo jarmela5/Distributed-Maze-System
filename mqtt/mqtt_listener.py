@@ -39,12 +39,11 @@ class MQTTListener:
 
 
     def on_message(self, client, userdata, msg):
-
         payload = msg.payload.decode()
 
-        print("\n[RECEIVED]")
-        print("Topic:", msg.topic)
-        print("Payload:", payload)
+        print("\n[DEBUG MQTT]")
+        print("TOPIC:", msg.topic)
+        print("PAYLOAD:", payload)
 
         self.event_processor.process(msg.topic, payload)
 
@@ -65,9 +64,10 @@ class MQTTListener:
 
 
     def start(self):
-
         print("Connecting to broker:", self.broker)
-
         self.client.connect(self.broker, self.port, 60)
+        self.client.loop_start()
 
-        self.client.loop_forever()
+    def stop(self):
+        self.client.loop_stop()
+        self.client.disconnect()

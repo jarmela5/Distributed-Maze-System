@@ -34,8 +34,7 @@ class MongoRepository:
         self.room_occupancy.create_index("room_id")
         self.alert_events.create_index("seq")
         self.alert_events.create_index("migrated")
-        self.alert_events.create_index("seq")
-        self.alert_events.create_index("migrated")
+        
 
     def _next_seq(self):
         """Contador atómico global — garante ordem real de chegada das mensagens."""
@@ -51,9 +50,9 @@ class MongoRepository:
         doc = {
             "seq":        self._next_seq(),
             "player":     event.get("player"),
-            "timestamp":  event.get("timestamp", datetime.now()),
+            "timestamp":  event.get("timestamp"),
             "value":      event.get("value"),
-            "is_valid":   not event.get("is_invalid", False),
+            "is_valid":   event.get("is_valid", True),
             "reason":     event.get("reason"),
             "migrated":   False,
         }
@@ -63,9 +62,9 @@ class MongoRepository:
         doc = {
             "seq":        self._next_seq(),
             "player":     event.get("player"),
-            "timestamp":  event.get("timestamp", datetime.now()),
+            "timestamp":  event.get("timestamp"),
             "value":      event.get("value"),
-            "is_valid":   not event.get("is_invalid", False),
+            "is_valid":   event.get("is_valid", True),
             "reason":     event.get("reason"),
             "migrated":   False,
         }
@@ -79,14 +78,14 @@ class MongoRepository:
             "origin":     event.get("origin"),
             "destiny":    event.get("destiny"),
             "status":     event.get("status"),
-            "is_valid":   not event.get("is_invalid", False),
+            "is_valid":   event.get("is_valid", True),
             "reason":     event.get("reason"),
-            "timestamp":  event.get("timestamp", datetime.now()),
+            "timestamp":  event.get("timestamp"),
             "migrated":   False,
         }
         self.movement_events.insert_one(doc)
 
-    def save_room_occupancy(self, changed_rooms, rooms):
+    def save_room_occupancy(self, changed_rooms, rooms, timestamp):
 
         for room_id in changed_rooms:
 
@@ -98,7 +97,7 @@ class MongoRepository:
                 "odd": data["odd"],
                 "even": data["even"],
                 "total": data["total"],
-                "timestamp": datetime.now(),
+                "timestamp": timestamp,
                 "migrated": False
             }
 
@@ -142,8 +141,22 @@ class MongoRepository:
         collections = (
             [self.db[collection_name]]
             if collection_name
-            else [self.temperature_events, self.sound_events, self.movement_events]
+            else [
+                self.temperature_events,
+                self.sound_events,
+                self.movement_events,
+                self.room_occupancy,
+                self.alert_events
+            ]
         )
+
         for col in collections:
-            result = col.update_many({}, {"$set": {"migrated": False}})
-            print(f"[RESET] {col.name}: {result.modified_count} documentos repostos")
+            result = col.update_many(
+                {},
+                {"$set": {"migrated": False}}
+            )
+
+            print(
+                f"[RESET] {col.name}: "
+                f"{result.modified_count} documentos repostos"
+            )

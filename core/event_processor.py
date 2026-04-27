@@ -24,20 +24,19 @@ class EventProcessor:
             return
 
         data = self._normalize_keys(data)
-
         player = self._extract_player(topic)
 
-        if "mazemov" in topic:
+        if topic.startswith("pisid_mazemov"):
             self._handle_movement(data, player)
 
-        elif "mazetemp" in topic:
+        elif topic.startswith("pisid_mazetemp"):
             self._handle_temperature(data, player)
 
-        elif "mazesound" in topic:
+        elif topic.startswith("pisid_mazesound"):
             self._handle_sound(data, player)
 
         else:
-            print("[WARNING] Unknown topic. Ignored.")
+            print("[WARNING] Unknown topic:", topic)
 
 
     def _normalize_keys(self, data):
@@ -45,10 +44,8 @@ class EventProcessor:
         normalized = {}
 
         for key, value in data.items():
-
             clean_key = key.lower()
             clean_key = re.sub(r'[^a-z]', '', clean_key)
-
             normalized[clean_key] = value
 
         return normalized
@@ -94,15 +91,17 @@ class EventProcessor:
         if event:
 
             event["player"] = player
-            event["timestamp"] = event.get("timestamp", datetime.now())
+
+            if "timestamp" not in event or event["timestamp"] is None:
+                event["timestamp"] = datetime.now()
 
             self.mongo_repo.save_movement(event)
 
-            if not event["is_invalid"] and changed_rooms:
-
+            if event.get("is_valid") and changed_rooms:
                 self.mongo_repo.save_room_occupancy(
                     changed_rooms,
-                    self.state_engine.rooms
+                    self.state_engine.rooms,
+                    event["timestamp"]
                 )
 
             if self.state_engine.game_started:
@@ -134,7 +133,7 @@ class EventProcessor:
         if self.state_engine.game_started:
             self.decision_engine.evaluate()
 
-        if not event.get("is_invalid") and value > self.temp_upper:
+        if event.get("is_valid") and value > self.temp_upper:
             self.mongo_repo.save_alert({
                 "player":  player,
                 "sala":    None,
@@ -142,7 +141,7 @@ class EventProcessor:
                 "leitura": value,
                 "tipo":    "TemperaturaAlta",
                 "msg":     f"Temperatura {value} acima do limite {self.temp_upper}"
-            })    
+            })
 
 
     def _handle_sound(self, data, player):
@@ -170,7 +169,7 @@ class EventProcessor:
         if self.state_engine.game_started:
             self.decision_engine.evaluate()
 
-        if not event.get("is_invalid") and value > self.noise_limit:
+        if event.get("is_valid") and value > self.noise_limit:
             self.mongo_repo.save_alert({
                 "player":  player,
                 "sala":    None,
@@ -178,16 +177,14 @@ class EventProcessor:
                 "leitura": value,
                 "tipo":    "RuidoAlto",
                 "msg":     f"Ruído {value} acima do limite {self.noise_limit}"
-            })    
+            })
 
 
     def _parse_timestamp(self, timestamp):
 
         if not timestamp:
-            return datetime.now()
-
+            return None
         try:
             return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
         except Exception:
-            print("[WARNING] Invalid timestamp. Using system time.")
-            return datetime.now()
+            return None

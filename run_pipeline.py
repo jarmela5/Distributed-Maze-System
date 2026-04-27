@@ -1,4 +1,4 @@
-import threading
+import time
 from core.config_manager import ConfigManager
 from core.state_engine import StateEngine
 from core.event_processor import EventProcessor
@@ -8,13 +8,13 @@ from persistance.mongo_repository import MongoRepository
 from persistance.migration_worker import MigrationWorker
 from persistance.mysql_writer import MySQLWriter
 
-
 def main():
+    TEMP_TRESHOLD = 15
+    SOUND_TRESHOLD = 15
 
     print("Starting Distributed Maze Pipeline")
 
     config_manager = ConfigManager()
-
     maze_graph = config_manager.get_maze_graph()
     temp_var   = config_manager.get_temperature_config()
     noise_var  = config_manager.get_noise_config()
@@ -22,10 +22,8 @@ def main():
     broker = "broker.emqx.io"
     port   = 1883
 
-    state_engine = StateEngine(maze_graph)
-
-    mongo_repo = MongoRepository()
-
+    state_engine    = StateEngine(maze_graph, TEMP_TRESHOLD, SOUND_TRESHOLD)
+    mongo_repo      = MongoRepository()
     decision_engine = DecisionEngine(
         player_id=6,
         state_engine=state_engine,
@@ -35,59 +33,45 @@ def main():
         noise_config=noise_var
     )
 
-    event_processor = EventProcessor(state_engine, mongo_repo, decision_engine, temp_var, noise_var)
-    #  MigrationWorker: MongoDB → MQTT 
+    event_processor  = EventProcessor(state_engine, mongo_repo, decision_engine, temp_var, noise_var)
     migration_worker = MigrationWorker(mongo_repo, broker=broker, port=port, polling_interval=2)
-    migration_thread = threading.Thread(target=migration_worker.run, daemon=True)
-    migration_thread.start()
-    print("[Main] MigrationWorker iniciado em thread separada")
+    mysql_writer     = MySQLWriter(broker=broker, port=port)
+    mqtt_listener    = MQTTListener(broker, port, player_id=6, event_processor=event_processor)
 
-    # MySQLWriter: MQTT → MySQL 
-    mysql_writer = MySQLWriter(broker=broker, port=port)
-    mysql_thread = threading.Thread(target=mysql_writer.start, daemon=True)
-    mysql_thread.start()
-    print("[Main] MySQLWriter iniciado em thread separada")
-    
+    # Todos os componentes MQTT correm em background (loop_start internamente)
+    mqtt_listener.start()
+    print("[Main] MQTTListener iniciado")
 
-    mqtt_listener = MQTTListener(
-        broker,
-        port,
-        player_id=6,
-        event_processor=event_processor
-    )
+    last_migration = 0
+    last_mysql_flush = 0
 
     try:
-        mqtt_listener.start()
+        while True:
+            now = time.time()
+
+            # MigrationWorker: polling a cada 2 segundos
+            if now - last_migration >= migration_worker.polling_interval:
+                migration_worker._migrar()
+                #total = migration_worker._migrar()
+                ##print(f"[MIGRATION] publicados={total} pending={len(migration_worker._pending)}")
+                last_migration = now
+
+            # MySQLWriter: processar buffer continuamente
+            mysql_writer._process_buffer()
+            ##print(f"[BUFFER] tamanho={len(mysql_writer._buffer)}")
+
+            time.sleep(0.05)
 
     except KeyboardInterrupt:
         print("\nShutting down system...")
 
     finally:
-        try:
-            migration_worker.stop()
-        except:
-            pass
-        try:
-            mysql_writer.stop()
-        except:
-            pass
-        try:
-            mqtt_listener.stop()
-        except:
-            pass
-        try:
-            decision_engine.stop()
-        except:
-            pass
-        try:
-            mongo_repo.client.close()
-        except:
-            pass
-        try:
-            config_manager.close()
-        except:
-            pass
-
+        mqtt_listener.stop()
+        migration_worker.stop()
+        mysql_writer.stop()
+        decision_engine.stop()
+        mongo_repo.client.close()
+        config_manager.close()
         print("System stopped cleanly.")
 
 
