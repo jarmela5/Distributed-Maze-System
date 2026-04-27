@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql
--- Tempo de geração: 21-Mar-2026 às 10:18
+-- Tempo de geração: 21-Abr-2026 às 12:50
 -- Versão do servidor: 8.0.45
 -- versão do PHP: 8.3.30
 
@@ -25,8 +25,16 @@ DELIMITER $$
 --
 -- Procedimentos
 --
-CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN `p_Nome` VARCHAR(50), IN `p_Telemovel` VARCHAR(12), IN `p_Tipo` VARCHAR(5), IN `p_Email` VARCHAR(50), IN `p_DataNascimento` DATE, IN `p_Password` VARCHAR(100), IN `p_Username` VARCHAR(50))   BEGIN
+CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN p_Nome VARCHAR(50),
+    IN p_Telemovel VARCHAR(12),
+    IN p_Tipo ENUM('admin', 'user', 'software', 'android'),
+    IN p_Email VARCHAR(50),
+    IN p_DataNascimento DATE,
+    IN p_Password VARCHAR(100),
+    IN p_Username VARCHAR(50)
+)
 
+BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
@@ -36,64 +44,149 @@ CREATE DEFINER=`root`@`%` PROCEDURE `AdicionarUtilizador` (IN `p_Nome` VARCHAR(5
 
     START TRANSACTION;
 
-    -- verificar se já existe
-    IF EXISTS (SELECT 1 FROM Utilizador WHERE Username = p_Username) THEN
+    -- verificar duplicado
+    IF EXISTS (SELECT 1 FROM Utilizador WHERE username = p_Username) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Username já existe';
     END IF;
 
-    -- criar utilizador MySQL
+    -- criar user MySQL
+
     SET @sql = CONCAT(
         'CREATE USER IF NOT EXISTS \'', p_Username, '\'@\'%\' IDENTIFIED BY \'', p_Password, '\''
     );
+
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+    -- limpar permissões antigas
+    SET @sql = CONCAT(
+        'REVOKE ALL PRIVILEGES, GRANT OPTION FROM \'', p_Username, '\'@\'%\''
+    );
+
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
 
-    -- permissões diretas (substitui roles)
-    IF LOWER(p_Tipo) = 'admin' THEN
-
-        -- permissões na BD
-        SET @sql2 = CONCAT(
-            'GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
+    -- =========================
+    -- ADMIN
+    -- =========================
+    IF p_Tipo = 'admin' THEN
+        SET @sql = CONCAT(
+            'GRANT ALL PRIVILEGES ON maze_local.* TO \'', p_Username, '\'@\'%\''
         );
-
-        PREPARE stmt2 FROM @sql2;
-        EXECUTE stmt2;
-        DEALLOCATE PREPARE stmt2;
-
-        -- permissões globais (CRÍTICO para DROP USER)
-        SET @sql3 = CONCAT(
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        SET @sql = CONCAT(
             'GRANT CREATE USER ON *.* TO \'', p_Username, '\'@\'%\''
         );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
 
-        PREPARE stmt3 FROM @sql3;
-        EXECUTE stmt3;
-        DEALLOCATE PREPARE stmt3;
-
-    ELSE
-
-        -- user normal
-        SET @sql2 = CONCAT(
-            'GRANT SELECT, INSERT, UPDATE, EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
+    -- =========================
+    -- ANDROID (só leitura)
+    -- =========================
+    ELSEIF p_Tipo = 'android' THEN
+        SET @sql = CONCAT(
+            'GRANT SELECT ON maze_local.* TO \'', p_Username, '\'@\'%\''
         );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
 
-        PREPARE stmt2 FROM @sql2;
-        EXECUTE stmt2;
-        DEALLOCATE PREPARE stmt2;
+    -- =========================
+    -- SOFTWARE
+    -- =========================
+    ELSEIF p_Tipo = 'software' THEN
+        -- MedicoesPassagens
+        SET @sql = CONCAT(
+            'GRANT SELECT, INSERT ON maze_local.MedicoesPassagens TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        -- Temperatura
+        SET @sql = CONCAT(
+            'GRANT SELECT, INSERT ON maze_local.Temperatura TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        -- Som
+        SET @sql = CONCAT(
+            'GRANT SELECT, INSERT ON maze_local.Som TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        -- Ocupacao
+        SET @sql = CONCAT(
+            'GRANT SELECT, INSERT, UPDATE ON maze_local.OcupacaoLabirinto TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        -- Mensagens
+        SET @sql = CONCAT(
+            'GRANT SELECT, INSERT ON maze_local.Mensagens TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
 
+        -- Simulacao
+        SET @sql = CONCAT(
+            'GRANT SELECT, INSERT ON maze_local.Simulacao TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+        -- execute procedures ISTO É PARA APAGAR QUANDO PHP FUNCIONAR
+        SET @sql = CONCAT(
+            'GRANT EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+    -- =========================
+    -- USER
+    -- =========================
+    ELSEIF p_Tipo = 'user' THEN
+        -- leitura geral
+        SET @sql = CONCAT(
+            'GRANT SELECT ON maze_local.* TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        -- update apenas utilizador
+        SET @sql = CONCAT(
+            'GRANT UPDATE ON maze_local.Utilizador TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+        -- execute procedures
+        SET @sql = CONCAT(
+            'GRANT EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
     END IF;
-
-    -- aplicar privilégios
     FLUSH PRIVILEGES;
 
-    -- inserir na tabela
-    INSERT INTO Utilizador (Nome, Telemovel, Tipo, Email, DataNascimento, Equipa, Username)
+    -- inserir utilizador na aplicação
+    INSERT INTO Utilizador (Nome, Telemovel, Tipo, Email, DataNascimento, Equipa, username)
     VALUES (p_Nome, p_Telemovel, p_Tipo, p_Email, p_DataNascimento, 6, p_Username);
-
     COMMIT;
 
 END$$
+
 
 CREATE DEFINER=`root`@`%` PROCEDURE `ApagarJogo` (IN `p_idJogo` INT)   BEGIN
 
@@ -415,8 +508,9 @@ CREATE TABLE `MedicoesPassagens` (
   `SalaDestino` int DEFAULT NULL,
   `Marsami` int DEFAULT NULL,
   `Status` int DEFAULT NULL,
-  `is_valid` tinyint(1) DEFAULT '1',
-  `IDJogo` int NOT NULL
+  `IDJogo` int NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_valid` tinyint(1) NOT NULL DEFAULT 1 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -429,12 +523,14 @@ CREATE TABLE `Mensagens` (
   `ID` bigint NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Sala` int DEFAULT NULL,
-  `Sensor` varchar(10) DEFAULT NULL,
+  `Sensor` varchar(15) DEFAULT NULL,
   `Leitura` decimal(6,2) DEFAULT NULL,
   `TipoAlerta` varchar(50) DEFAULT NULL,
   `Msg` varchar(100) DEFAULT NULL,
   `HoraEscrita` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `IDJogo` int NOT NULL
+  `IDJogo` int NOT NULL,
+  `seq` bigint NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -447,7 +543,8 @@ CREATE TABLE `OcupacaoLabirinto` (
   `IDJogo` int NOT NULL,
   `Sala` int NOT NULL,
   `NumeroMarsamisOdd` int DEFAULT '0',
-  `NumeroMarsamisEven` int DEFAULT '0'
+  `NumeroMarsamisEven` int DEFAULT '0',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -462,7 +559,10 @@ CREATE TABLE `Simulacao` (
   `Equipa` int NOT NULL,
   `DataHoraInicio` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `Estado` varchar(20) DEFAULT 'Ativo',
-  `IDUtilizador` int NOT NULL
+  `IDUtilizador` int NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `OutlierTempThreshold` DECIMAL(6,2) NOT NULL,
+  `OutlierNoiseThreshold` DECIMAL(6,2) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -476,8 +576,9 @@ CREATE TABLE `Som` (
   `seq` bigint NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Som` decimal(6,2) DEFAULT NULL,
-  `is_valid` tinyint(1) DEFAULT '1',
-  `IDJogo` int NOT NULL
+  `IDJogo` int NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_valid` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -491,8 +592,9 @@ CREATE TABLE `Temperatura` (
   `seq` bigint NOT NULL,
   `Hora` timestamp NULL DEFAULT NULL,
   `Temperatura` decimal(6,2) DEFAULT NULL,
-  `is_valid` tinyint(1) DEFAULT '1',
-  `IDJogo` int NOT NULL
+  `IDJogo` int NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_valid` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -505,21 +607,31 @@ CREATE TABLE `Utilizador` (
   `IDUtilizador` int NOT NULL,
   `Nome` varchar(100) NOT NULL,
   `Telemovel` varchar(12) DEFAULT NULL,
-  `Tipo` varchar(10) DEFAULT NULL,
+  `Tipo` ENUM('admin', 'user', 'software', 'android') DEFAULT NULL,  
   `Email` varchar(50) DEFAULT NULL,
-  `Password` varchar(255) DEFAULT NULL,
   `DataNascimento` date DEFAULT NULL,
   `Equipa` int NOT NULL,
-  `username` varchar(50) NOT NULL
+  `username` varchar(50) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+
+-- --------------------------------------------------------
+
 --
--- Extraindo dados da tabela `Utilizador`
+-- Estrutura da tabela `ConfiguracaoSistema`
 --
 
-INSERT INTO `Utilizador` (`IDUtilizador`, `Nome`, `Telemovel`, `Tipo`, `Email`, `Password`, `DataNascimento`, `Equipa`, `username`) VALUES
-(16, 'admin', '999999999', 'admin', 'admin@email.pt', NULL, '1999-01-01', 6, 'admin'),
-(18, 'maria', '123456789', 'user', 'maria@email.pt', NULL, '1999-01-01', 6, 'maria');
+CREATE TABLE `ConfiguracaoSistema` (
+    `ID` INT PRIMARY KEY AUTO_INCREMENT,
+    `DefaultTempThreshold` DECIMAL(6,2) NOT NULL,
+    `DefaultNoiseThreshold` DECIMAL(6,2) NOT NULL,
+    `DataAtualizacao` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `is_active` tinyint(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT INTO ConfiguracaoSistema (DefaultTempThreshold, DefaultNoiseThreshold)
+VALUES (2.5, 5.0);
 
 --
 -- Índices para tabelas despejadas
@@ -538,6 +650,7 @@ ALTER TABLE `MedicoesPassagens`
 --
 ALTER TABLE `Mensagens`
   ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `uq_mensagens_seq_jogo` (`seq`,`IDJogo`),
   ADD KEY `IDJogo` (`IDJogo`);
 
 --
@@ -655,6 +768,46 @@ ALTER TABLE `Som`
 ALTER TABLE `Temperatura`
   ADD CONSTRAINT `temperatura_ibfk_1` FOREIGN KEY (`IDJogo`) REFERENCES `Simulacao` (`IDSimulacao`) ON DELETE CASCADE;
 COMMIT;
+
+CALL AdicionarUtilizador(
+    'admin',
+    '999999999',
+    'admin',
+    'admin@email.pt',
+    '1999-01-01',
+    'admin',
+    'admin'
+);
+
+CALL AdicionarUtilizador(
+    'maria',
+    '123456789',
+    'user',
+    'maria@email.pt',
+    '1999-01-01',
+    'maria',
+    'maria'
+);
+
+CALL AdicionarUtilizador(
+    'Sistema Backend',
+    '000000000',
+    'software',
+    'software@maze.pt',
+    '2000-01-01',
+    'software',
+    'software'
+);
+
+CALL AdicionarUtilizador(
+    'App Android',
+    '000000000',
+    'android',
+    'android@maze.pt',
+    '2000-01-01',
+    'android',
+    'android'
+);
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
