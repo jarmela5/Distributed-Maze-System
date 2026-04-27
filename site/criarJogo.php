@@ -1,3 +1,61 @@
+<?php
+session_start();
+require_once 'config.php';
+
+// verificar login
+if (!isset($_SESSION['IDUtilizador'])) {
+    header("Location: login.php");
+    exit();
+}
+
+$username = $_SESSION['username'];
+$IDUtilizador = $_SESSION['IDUtilizador'];
+
+// procurar equipa do user
+try {
+    $sqlUser = "SELECT Equipa FROM Utilizador WHERE IDUtilizador = :id";
+    $stmtUser = $pdo->prepare($sqlUser);
+    $stmtUser->execute([':id' => $IDUtilizador]);
+
+    $userData = $stmtUser->fetch();
+
+    if (!$userData) {
+        die("Utilizador não encontrado.");
+    }
+
+    $equipa = $userData['Equipa'];
+
+} catch (PDOException $e) {
+    die("Erro ao buscar equipa: " . $e->getMessage());
+}
+
+//formulario
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_criar'])) {
+
+    $descricao = trim($_POST['descricao']);
+    $temp = $_POST['temp_max'];
+    $som = $_POST['som_max'];
+
+    try {
+        $sql = "CALL CriarJogo(:equipa, :desc, NOW(), 'iniciada', :temp_max, :som_max, @p_idJogo)";
+
+        $stmt = $pdo->prepare($sql);
+
+        $stmt->execute([
+            ':equipa'   => $equipa,
+            ':desc'     => $descricao,
+            ':temp_max' => $temp,
+            ':som_max'  => $som
+        ]);
+
+        header("Location: dashboard.php?sucesso=1");
+        exit();
+
+    } catch (PDOException $e) {
+        $erro_msg = "Erro ao criar jogo: " . $e->getMessage();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -5,7 +63,7 @@
 <title>Criar Novo Jogo</title>
 
 <style>
-/* Reset básico */
+
 *{
     box-sizing: border-box;
     margin: 0;
@@ -45,14 +103,12 @@ body, html{
     color: #1abc9c;
 }
 
-/* Conteúdo principal ocupa todo o espaço restante */
 .main{
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
-/* Topbar */
 .topbar{
     background: white;
     padding: 15px 25px;
@@ -133,58 +189,46 @@ button:hover{
 <body>
 
 <div class="container">
-
     <div class="sidebar">
         <h2>Menu</h2>
-        <a href="#">Dashboard</a>
-        <a href="#">Os seus jogos</a>
+        <a href="dashboard.php">Dashboard</a>
+        <a href="simulacao.php">Os seus jogos</a>
         <a href="#"><strong>Criar jogo</strong></a>
-        <a href="#">Logout</a>
+        <a href="logout.php">Logout</a>
     </div>
 
     <div class="main">
-
         <div class="topbar">
             <div><strong>Criar Novo Jogo</strong></div>
-            <div>Utilizador: joao123</div>
+            <div>Utilizador: <?php echo htmlspecialchars($username); ?></div>
         </div>
 
         <div class="content">
-
             <div class="form-card">
-
                 <h2>Novo jogo</h2>
 
-                <form>
+                <?php if(isset($erro_msg)) echo "<p style='color:red'>$erro_msg</p>"; ?>
 
-                    <label>Nome do jogo</label>
-                    <input type="text">
+                <form method="POST" action="">
 
                     <label>Descrição</label>
-                    <textarea rows="4" placeholder="Descrição do jogo"></textarea>
+                    <textarea name="descricao" rows="4" placeholder="Descrição do jogo" required></textarea>
 
-                    <label>Data e hora</label>
-                    <input type="datetime-local">
+                    <label>Variação máxima de Temperatura (°C)</label>
+                    <input type="number" name="temp_max" placeholder="Ex: 5" required>
 
-                    <label>Temperatura Ar condicionado (°C)</label>
-                    <input type="number" placeholder="Ex: 30">
-
-                    <label>Som fechar salas (dB)</label>
-                    <input type="number" placeholder="Ex: 40">
+                    <label>Variação máxima de Som (dB)</label>
+                    <input type="number" name="som_max" placeholder="Ex: 10" required>
 
                     <div class="buttons">
-                        <button class="btn-create">Criar jogo</button>
-                        <button class="btn-cancel" type="button">Cancelar</button>
+                        <button type="submit" name="btn_criar" class="btn-create">Criar jogo</button>
+                        <button class="btn-cancel" type="button" onclick="window.location.href='dashboard.php'">Cancelar</button>
                     </div>
 
                 </form>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
 </body>

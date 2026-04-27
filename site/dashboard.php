@@ -1,3 +1,15 @@
+<?php
+session_start();
+
+if (!isset($_SESSION['IDUtilizador'])) {
+    header("Location: login.php");
+    exit();
+}
+
+
+$username = $_SESSION['username'];
+?>
+
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -84,9 +96,9 @@ body{
     <div class="sidebar">
         <h2>Menu</h2>
         <a href="#"><strong>Dashboard</strong></a>
-        <a href="#">Os seus jogos</a>
-        <a href="#">Criar jogo</a>
-        <a href="#">Logout</a>
+        <a href="simulacao.php">Os seus jogos</a>
+        <a href="criarJogo.php">Criar jogo</a>
+        <a href="logout.php">Logout</a>
     </div>
 
 <div class="main">
@@ -94,14 +106,14 @@ body{
     <div class="topbar">
         <div><strong>Painel Principal</strong></div>
         <div class="username">
-            Utilizador: <span id="username">joao123</span>
+            Utilizador: <span id="username"><?php echo $username ?></span>
         </div>
     </div>
 
     <div class="content">
 
         <div class="card">
-            <h3>Bem vindo joao123!</h3>
+            <h3>Bem vindo <?php echo $username ?>!</h3>
             <p>Estás autenticado.</p>
         </div>
 
