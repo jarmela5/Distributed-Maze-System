@@ -18,11 +18,13 @@ def main():
     maze_graph = config_manager.get_maze_graph()
     temp_var   = config_manager.get_temperature_config()
     noise_var  = config_manager.get_noise_config()
+    thresholds = config_manager.get_thresholds()
+    
 
     broker = "broker.emqx.io"
     port   = 1883
 
-    state_engine    = StateEngine(maze_graph, TEMP_TRESHOLD, SOUND_TRESHOLD)
+    state_engine    = StateEngine(maze_graph, thresholds)
     mongo_repo      = MongoRepository()
     decision_engine = DecisionEngine(
         player_id=6,

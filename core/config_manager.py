@@ -4,90 +4,52 @@ import mysql.connector
 class ConfigManager:
 
     def __init__(self):
-        self.conn = mysql.connector.connect(
+        self.conn_cloud = mysql.connector.connect(
             user="aluno",
             host="194.210.86.10",
             database="maze",
             passwd="aluno"
         )
 
-    def get_maze_graph(self):
+        self.conn_local = mysql.connector.connect(
+            user='software',
+            host='localhost',
+            database='maze_local',
+            passwd='software'
+        )
 
-        cursor = self.conn.cursor()
+    def get_thresholds(self):
+        cursor = self.conn_local.cursor()
 
-        query = """
-        SELECT RoomA, RoomB
-        FROM Corridor
-        """
+        # tentar ir buscar da simulação ativa
+        cursor.execute("""
+            SELECT OutlierTempThreshold, OutlierNoiseThreshold
+            FROM Simulacao
+            WHERE Estado = 'Ativo'
+            LIMIT 1
+        """)
 
-        cursor.execute(query)
-        rows = cursor.fetchall()
-
-        cursor.close()
-
-        graph = {}
-
-        for a, b in rows:
-
-            if a not in graph:
-                graph[a] = []
-
-            if b not in graph:
-                graph[b] = []
-
-            graph[a].append(b)
-            graph[b].append(a)
-
-        return graph
-
-
-    def get_temperature_config(self):
-
-        cursor = self.conn.cursor()
-
-        query = """
-        SELECT normaltemperature,
-               temperaturevarhightoleration,
-               temperaturevarlowtoleration
-        FROM SetupMaze
-        """
-
-        cursor.execute(query)
         result = cursor.fetchone()
 
-        cursor.close()
-
-        normal, high_tol, low_tol = result
-
-        return {
-            "normal": normal,
-            "high_tol": high_tol,
-            "low_tol": low_tol
-        }
-
-
-    def get_noise_config(self):
-
-        cursor = self.conn.cursor()
-
-        query = """
-        SELECT normalnoise,
-               noisevartoleration
-        FROM SetupMaze
-        """
-
-        cursor.execute(query)
-        result = cursor.fetchone()
+        if not result or result[0] is None or result[1] is None:
+            cursor.execute("""
+                SELECT DefaultTempThreshold, DefaultNoiseThreshold
+                FROM ConfiguracaoSistema
+                WHERE is_active = 1
+                LIMIT 1
+            """)
+            result = cursor.fetchone()
 
         cursor.close()
 
-        normal, tol = result
+        if not result:
+            raise Exception("Configuração não encontrada")
 
         return {
-            "normal": normal,
-            "tolerance": tol
+            "temp": result[0],
+            "noise": result[1]
         }
-
 
     def close(self):
-        self.conn.close()
+        self.conn_cloud.close()
+        self.conn_local.close()

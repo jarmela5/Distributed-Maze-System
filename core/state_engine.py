@@ -3,23 +3,22 @@ from datetime import datetime
 
 class StateEngine:
 
-    def __init__(self, maze_graph, temp_threshold, sound_threshold):
+    def __init__(self, maze_graph, thresholds):
 
         self.room_graph = maze_graph
 
         self.rooms = {}
         self.marsami_positions = {}
         self.marsami_types = {}
-
-        # Para média acumulada
+        
         self.temp_sum = 0
         self.temp_count = 0
 
         self.sound_sum = 0
         self.sound_count = 0
 
-        self.temp_threshold = temp_threshold
-        self.sound_threshold = sound_threshold
+        self.temp_threshold = thresholds[0]
+        self.sound_threshold = thresholds[1]
 
         self.game_started = False
 
