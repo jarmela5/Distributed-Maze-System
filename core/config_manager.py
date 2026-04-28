@@ -4,7 +4,6 @@ import mysql.connector
 class ConfigManager:
 
     def __init__(self):
-
         self.conn_cloud = mysql.connector.connect(
             user="aluno",
             host="194.210.86.10",
@@ -122,10 +121,9 @@ class ConfigManager:
         normal, tol = result
 
         return {
-            "normal": normal,
-            "tolerance": tol
+            "temp": result[0],
+            "noise": result[1]
         }
-
 
     def close(self):
         if self.conn_cloud.is_connected():
