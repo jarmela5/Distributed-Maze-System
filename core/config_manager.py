@@ -121,8 +121,8 @@ class ConfigManager:
         normal, tol = result
 
         return {
-            "temp": result[0],
-            "noise": result[1]
+            "normal": result[0],
+            "tolerance": result[1]
         }
 
     def close(self):
