@@ -561,8 +561,8 @@ CREATE TABLE `Simulacao` (
   `Estado` varchar(20) DEFAULT 'Ativo',
   `IDUtilizador` int NOT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `OutlierTempThreshold` DECIMAL(6,2) NOT NULL,
-  `OutlierNoiseThreshold` DECIMAL(6,2) NOT NULL
+  `OutlierTempThreshold` DECIMAL(6,2) NULL,
+  `OutlierNoiseThreshold` DECIMAL(6,2) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------

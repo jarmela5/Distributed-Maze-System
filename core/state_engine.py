@@ -3,7 +3,7 @@ from datetime import datetime
 
 class StateEngine:
 
-    def __init__(self, maze_graph, temp_threshold, sound_threshold):
+    def __init__(self, maze_graph, threshold):
 
         self.room_graph = maze_graph
 
@@ -11,15 +11,14 @@ class StateEngine:
         self.marsami_positions = {}
         self.marsami_types = {}
 
-        # Para média acumulada
         self.temp_sum = 0
         self.temp_count = 0
 
         self.sound_sum = 0
         self.sound_count = 0
 
-        self.temp_threshold = temp_threshold
-        self.sound_threshold = sound_threshold
+        self.temp_threshold = threshold["temp"]
+        self.sound_threshold = threshold["noise"]
 
         self.game_started = False
 
@@ -171,13 +170,11 @@ class StateEngine:
             "reason": None
         }
 
-        # Timestamp inválido
         if timestamp is None:
             event["is_valid"] = False
             event["reason"] = "Invalid timestamp"
             return event
 
-        # Primeira leitura válida
         if self.sound_count == 0:
             self.sound_sum += sound
             self.sound_count += 1

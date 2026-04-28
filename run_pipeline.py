@@ -11,31 +11,26 @@ from persistance.migration_worker import MigrationWorker
 from persistance.mysql_writer import MySQLWriter
 
 def main():
-    # Configurações de validação de ruído/temp (filtros da StateEngine)
-    TEMP_TRESHOLD = 15
-    SOUND_TRESHOLD = 15
+
     PLAYER_ID = 6
     BROKER = "broker.emqx.io"
     PORT = 1883
 
     print(f"--- Starting Distributed Maze Pipeline (Player {PLAYER_ID}) ---")
 
-    # 1. Carregar configurações do MySQL via ConfigManager
     config_manager = ConfigManager()
     maze_graph = config_manager.get_maze_graph()
     temp_var   = config_manager.get_temperature_config()
     noise_var  = config_manager.get_noise_config()
+    threshold_var = config_manager.get_thresholds()
 
-    # 2. Inicializar Repositório e Motores de Estado
     mongo_repo   = MongoRepository()
-    state_engine = StateEngine(maze_graph, TEMP_TRESHOLD, SOUND_TRESHOLD)
+    state_engine = StateEngine(maze_graph, threshold_var)
 
-    # 3. Inicializar Cliente MQTT Comum (para as Engines publicarem comandos)
     common_mqtt = mqtt.Client(client_id=f"maze_engines_{PLAYER_ID}")
     common_mqtt.connect(BROKER, PORT)
     common_mqtt.loop_start()
 
-    # 4. Inicializar AlertEngine (Segurança e Atuadores)
     alert_engine = AlertEngine(
         player_id=PLAYER_ID,
         mqtt_client=common_mqtt,
@@ -45,15 +40,13 @@ def main():
         maze_graph=maze_graph
     )
 
-    # 5. Inicializar DecisionEngine (Lógica de Jogo e Pontuação)
     decision_engine = DecisionEngine(
         player_id=PLAYER_ID,
         state_engine=state_engine,
-        broker=BROKER, # A DecisionEngine internamente cria o seu próprio cliente se o teu código original assim o dita
+        broker=BROKER, 
         port=PORT
     )
 
-    # 6. Inicializar Processador de Eventos (O Orquestrador)
     event_processor = EventProcessor(
         state_engine=state_engine, 
         mongo_repo=mongo_repo, 
@@ -61,7 +54,6 @@ def main():
         alert_engine=alert_engine
     )
 
-    # 7. Inicializar Componentes de Persistência e Escuta
     migration_worker = MigrationWorker(mongo_repo, broker=BROKER, port=PORT, polling_interval=2)
     mysql_writer     = MySQLWriter(broker=BROKER, port=PORT)
     mqtt_listener    = MQTTListener(BROKER, PORT, player_id=PLAYER_ID, event_processor=event_processor)
@@ -75,12 +67,9 @@ def main():
         while True:
             now = time.time()
 
-            # Executa a migração de dados do Mongo para o Tópico de Migração
             if now - last_migration >= migration_worker.polling_interval:
                 migration_worker._migrar()
                 last_migration = now
-
-            # Processa o buffer do MySQL (recebe do tópico de migração e grava no SQL)
             mysql_writer._process_buffer()
 
             time.sleep(0.05)
