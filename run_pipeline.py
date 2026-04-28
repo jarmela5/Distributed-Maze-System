@@ -1,19 +1,26 @@
 import time
+import paho.mqtt.client as mqtt
 from core.config_manager import ConfigManager
 from core.state_engine import StateEngine
 from core.event_processor import EventProcessor
 from core.decision_engine import DecisionEngine
+from core.alert_engine import AlertEngine  # Importante!
 from mqtt.mqtt_listener import MQTTListener
 from persistance.mongo_repository import MongoRepository
 from persistance.migration_worker import MigrationWorker
 from persistance.mysql_writer import MySQLWriter
 
 def main():
+    # Configurações de validação de ruído/temp (filtros da StateEngine)
     TEMP_TRESHOLD = 15
     SOUND_TRESHOLD = 15
+    PLAYER_ID = 6
+    BROKER = "broker.emqx.io"
+    PORT = 1883
 
-    print("Starting Distributed Maze Pipeline")
+    print(f"--- Starting Distributed Maze Pipeline (Player {PLAYER_ID}) ---")
 
+    # 1. Carregar configurações do MySQL via ConfigManager
     config_manager = ConfigManager()
     maze_graph = config_manager.get_maze_graph()
     temp_var   = config_manager.get_temperature_config()
@@ -27,55 +34,57 @@ def main():
     state_engine    = StateEngine(maze_graph, thresholds)
     mongo_repo      = MongoRepository()
     decision_engine = DecisionEngine(
-        player_id=6,
+        player_id=PLAYER_ID,
         state_engine=state_engine,
-        broker=broker,
-        port=port,
-        temp_config=temp_var,
-        noise_config=noise_var
+        broker=BROKER, # A DecisionEngine internamente cria o seu próprio cliente se o teu código original assim o dita
+        port=PORT
     )
 
-    event_processor  = EventProcessor(state_engine, mongo_repo, decision_engine, temp_var, noise_var)
-    migration_worker = MigrationWorker(mongo_repo, broker=broker, port=port, polling_interval=2)
-    mysql_writer     = MySQLWriter(broker=broker, port=port)
-    mqtt_listener    = MQTTListener(broker, port, player_id=6, event_processor=event_processor)
+    # 6. Inicializar Processador de Eventos (O Orquestrador)
+    event_processor = EventProcessor(
+        state_engine=state_engine, 
+        mongo_repo=mongo_repo, 
+        decision_engine=decision_engine, 
+        alert_engine=alert_engine
+    )
 
-    # Todos os componentes MQTT correm em background (loop_start internamente)
+    # 7. Inicializar Componentes de Persistência e Escuta
+    migration_worker = MigrationWorker(mongo_repo, broker=BROKER, port=PORT, polling_interval=2)
+    mysql_writer     = MySQLWriter(broker=BROKER, port=PORT)
+    mqtt_listener    = MQTTListener(BROKER, PORT, player_id=PLAYER_ID, event_processor=event_processor)
+
     mqtt_listener.start()
-    print("[Main] MQTTListener iniciado")
+    print("[System] All components initialized and running.")
 
     last_migration = 0
-    last_mysql_flush = 0
 
     try:
         while True:
             now = time.time()
 
-            # MigrationWorker: polling a cada 2 segundos
+            # Executa a migração de dados do Mongo para o Tópico de Migração
             if now - last_migration >= migration_worker.polling_interval:
                 migration_worker._migrar()
-                #total = migration_worker._migrar()
-                ##print(f"[MIGRATION] publicados={total} pending={len(migration_worker._pending)}")
                 last_migration = now
 
-            # MySQLWriter: processar buffer continuamente
+            # Processa o buffer do MySQL (recebe do tópico de migração e grava no SQL)
             mysql_writer._process_buffer()
-            ##print(f"[BUFFER] tamanho={len(mysql_writer._buffer)}")
 
             time.sleep(0.05)
 
     except KeyboardInterrupt:
-        print("\nShutting down system...")
+        print("\n[System] Shutting down...")
 
     finally:
         mqtt_listener.stop()
         migration_worker.stop()
         mysql_writer.stop()
         decision_engine.stop()
+        common_mqtt.loop_stop()
+        common_mqtt.disconnect()
         mongo_repo.client.close()
         config_manager.close()
-        print("System stopped cleanly.")
-
+        print("[System] Stopped cleanly.")
 
 if __name__ == "__main__":
     main()
