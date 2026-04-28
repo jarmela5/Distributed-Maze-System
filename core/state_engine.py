@@ -10,7 +10,6 @@ class StateEngine:
         self.rooms = {}
         self.marsami_positions = {}
         self.marsami_types = {}
-
         self.temp_sum = 0
         self.temp_count = 0
 

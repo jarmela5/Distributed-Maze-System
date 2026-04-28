@@ -110,7 +110,7 @@ class EventProcessor:
             self.alert_engine.process_temperature(value)
             
             if self.state_engine.game_started:
-                self.decision_engine.evaluate()
+                self.decision_engine.evaluate(event)
 
     def _handle_sound(self, data, player):
         if "sound" not in data:

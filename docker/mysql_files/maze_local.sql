@@ -144,6 +144,14 @@ BEGIN
         EXECUTE stmt;
         DEALLOCATE PREPARE stmt;
 
+        -- ConfiguracaoSistema
+        SET @sql = CONCAT(
+            'GRANT SELECT ON maze_local.ConfiguracaoSistema TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
         -- execute procedures ISTO É PARA APAGAR QUANDO PHP FUNCIONAR
         SET @sql = CONCAT(
             'GRANT EXECUTE ON maze_local.* TO \'', p_Username, '\'@\'%\''
@@ -339,7 +347,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `CriarJogo` (IN `p_equipa` INT, IN `p_descri
     -- validar timestamp duplicado
     IF EXISTS (
         SELECT 1 FROM Simulacao
-        WHERE DataHoraInicio = p_dataHoraInicio
+        WHERE Estado = 'Ativo'
     ) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Já existe uma simulação com este timestamp';
@@ -583,7 +591,7 @@ CREATE TABLE `Som` (
 
 -- --------------------------------------------------------
 
---
+-- 
 -- Estrutura da tabela `Temperatura`
 --
 
@@ -631,7 +639,7 @@ CREATE TABLE `ConfiguracaoSistema` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 INSERT INTO ConfiguracaoSistema (DefaultTempThreshold, DefaultNoiseThreshold)
-VALUES (2.5, 5.0);
+VALUES (10, 15);
 
 --
 -- Índices para tabelas despejadas

@@ -10,7 +10,7 @@ class MigrationWorker:
         "temperature_events",
         "sound_events",
         "room_occupancy",
-        "alert_events"
+        "system_events"
     ]
 
     TYPE_MAP = {
@@ -18,7 +18,7 @@ class MigrationWorker:
         "temperature_events": "temperature",
         "sound_events": "sound",
         "room_occupancy": "occupancy",
-        "alert_events": "alert"
+        "system_events": "alert"
     }
 
     TOPIC = "pisid_migrate_all"
@@ -141,7 +141,7 @@ class MigrationWorker:
                 "total": clean_doc.get("total")
             })
 
-        elif collection_name == "alert_events":
+        elif collection_name == "system_events":
             payload.update({
                 "timestamp": clean_doc.get("timestamp"),
                 "sala": clean_doc.get("sala"),

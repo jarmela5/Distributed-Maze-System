@@ -13,7 +13,7 @@ class MongoRepository:
         self.sound_events       = self.db["sound_events"]
         self.movement_events    = self.db["movement_events"]
         self.room_occupancy     = self.db["room_occupancy"]
-        self.alert_events = self.db["alert_events"]
+        self.system_events       = self.db["system_events"]
 
         self._create_indexes()
         print("[MongoDB] MongoRepository connected to", db_name)
@@ -32,8 +32,8 @@ class MongoRepository:
         self.room_occupancy.create_index("seq")
         self.room_occupancy.create_index("migrated")
         self.room_occupancy.create_index("room_id")
-        self.alert_events.create_index("seq")
-        self.alert_events.create_index("migrated")
+        self.system_events.create_index("seq")
+        self.system_events.create_index("migrated")
         
 
     def _next_seq(self):
@@ -103,11 +103,11 @@ class MongoRepository:
 
             self.room_occupancy.insert_one(doc)
 
-    def save_alert(self, event: dict):
+    def save_event(self, event: dict):
         doc = {
             "seq":       self._next_seq(),
             "player":    event.get("player"),
-            "timestamp": event.get("timestamp", datetime.now()),
+            "timestamp": event.get("timestamp") or datetime.now().isoformat(),
             "sala":      event.get("sala"),
             "sensor":    event.get("sensor"),
             "leitura":   event.get("leitura"),
@@ -115,7 +115,7 @@ class MongoRepository:
             "msg":       event.get("msg"),
             "migrated":  False,
         }
-        self.alert_events.insert_one(doc)        
+        self.system_events.insert_one(doc)      
 
     # Métodos de suporte à migração
 
@@ -146,7 +146,7 @@ class MongoRepository:
                 self.sound_events,
                 self.movement_events,
                 self.room_occupancy,
-                self.alert_events
+                self.system_events
             ]
         )
 

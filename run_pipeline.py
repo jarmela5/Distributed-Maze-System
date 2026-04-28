@@ -43,6 +43,7 @@ def main():
     decision_engine = DecisionEngine(
         player_id=PLAYER_ID,
         state_engine=state_engine,
+        mongo_repo=mongo_repo,
         broker=BROKER, 
         port=PORT
     )
