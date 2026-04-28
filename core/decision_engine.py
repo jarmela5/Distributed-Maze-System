@@ -11,21 +11,12 @@ class DecisionEngine:
 
     DECISION_INTERVAL = 1.0
 
-    def __init__(self, player_id, state_engine: StateEngine, broker, port, 
-                 temp_config, noise_config):
+    def __init__(self, player_id, state_engine: StateEngine, broker, port ):
 
         self.player_id = player_id
         self.state_engine = state_engine
 
-        self.normal_temp = temp_config["normal"]
-        self.temp_high_tol = temp_config["high_tol"]
-        self.temp_low_tol = temp_config["low_tol"]
-
-        self.normal_noise = noise_config["normal"]
-        self.noise_tol = noise_config["tolerance"]
-
         self._trigger_state = {}
-        self._ac_on = False
 
         self.last_decision_time = 0
 
@@ -42,9 +33,6 @@ class DecisionEngine:
 
         self._mqtt.publish("pisid_mazeact", message)
 
-        # print("[ACT]", message)
-
-
     def evaluate(self):
 
         with self._lock:
@@ -57,9 +45,6 @@ class DecisionEngine:
             self.last_decision_time = now
 
             self._check_triggers()
-            self._check_temperature()
-            self._check_noise()
-            self._balance_rooms()
 
 
     def _check_triggers(self):
@@ -89,95 +74,27 @@ class DecisionEngine:
 
                 print(f"[TRIGGER] Room {room_id} equilibrium")
 
+    def stop(self):
 
-    def _check_temperature(self):
+        self._mqtt.loop_stop()
 
-        temp = self.state_engine.last_temp_value
+        self._mqtt.disconnect()
 
-        if temp is None:
-            return
+        print("[DecisionEngine] stopped")
 
-        upper = self.normal_temp + self.temp_high_tol
-        lower = self.normal_temp - self.temp_low_tol
-
-        if temp > upper and not self._ac_on:
-
-            print("[TEMP] Too hot → turning AC ON")
-
-            self.set_ac(True)
-
-        elif temp < lower and self._ac_on:
-
-            print("[TEMP] Temperature safe → turning AC OFF")
-
-            self.set_ac(False)
-
-    def set_ac(self, on: bool):
-
-        self._ac_on = on
+    def close_all_corridors(self):
 
         self._publish({
-        "Type": "AcOn" if on else "AcOff",
-        "Player": self.player_id
-    })
+            "Type": "CloseAllDoor",
+            "Player": self.player_id
+        })
 
+    def open_all_corridors(self):
 
-    def _check_noise(self):
-
-        sound = self.state_engine.last_sound_value
-
-        if sound is None:
-            return
-
-        limit = self.normal_noise + self.noise_tol
-
-        if sound <= limit:
-            return
-
-        print("[NOISE] High noise detected")
-
-        graph = self.state_engine.room_graph
-
-        closed = 0
-
-        for origin in graph:
-            for destiny in graph[origin]:
-
-                if closed >= 2:
-                    return
-
-                self.close_corridor(origin, destiny)
-
-                closed += 1
-
-
-    def _balance_rooms(self):
-
-        rooms = self.state_engine.rooms
-        graph = self.state_engine.room_graph
-
-        for room_id, occ in rooms.items():
-
-            odd = occ["odd"]
-            even = occ["even"]
-
-            if odd == even:
-                continue
-
-            diff = odd - even
-
-            # if diff > 0:
-            #     print(f"[BALANCE] Room {room_id} has too many ODD")
-
-            # else:
-            #     print(f"[BALANCE] Room {room_id} has too many EVEN")
-
-            if room_id in graph:
-
-                for destiny in graph[room_id]:
-
-                    self.open_corridor(room_id, destiny)
-
+        self._publish({
+            "Type": "OpenAllDoor",
+            "Player": self.player_id
+        })
 
     def open_corridor(self, origin, destiny):
 
@@ -196,26 +113,3 @@ class DecisionEngine:
             "RoomOrigin": origin,
             "RoomDestiny": destiny
         })
-
-    def close_all_corridors(self):
-
-        self._publish({
-            "Type": "CloseAllDoor",
-            "Player": self.player_id
-        })
-
-    def open_all_corridors(self):
-
-        self._publish({
-            "Type": "OpenAllDoor",
-            "Player": self.player_id
-        })
-
-
-    def stop(self):
-
-        self._mqtt.loop_stop()
-
-        self._mqtt.disconnect()
-
-        print("[DecisionEngine] stopped")
