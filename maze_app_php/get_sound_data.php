@@ -28,9 +28,14 @@ if ($conn->connect_error) {
     exit;
 }
 
-$sql = "SELECT IDSom, Som, Hora, IDJogo
+$sql = "SELECT 
+        IDSom  AS idsom,
+        Som    AS som,
+        Hora   AS hora,
+        IDJogo AS idjogo
         FROM Som
         WHERE is_active = 1
+        AND is_valid = 1
         ORDER BY IDSom ASC";
 $result = $conn->query($sql);
 

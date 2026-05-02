@@ -32,7 +32,15 @@ if ($conn->connect_error) {
 }
 
 // 3. Consulta
-$sql = "SELECT ID, TipoAlerta, Hora, Msg, Leitura, Sensor, Sala, IDJogo
+$sql = "SELECT 
+        ID        AS id,
+        TipoAlerta AS tipoalerta,
+        Hora      AS hora,
+        Msg       AS msg,
+        Leitura   AS leitura,
+        Sensor    AS sensor,
+        Sala      AS sala,
+        IDJogo    AS idjogo
         FROM Mensagens
         WHERE is_active = 1
         ORDER BY ID DESC";

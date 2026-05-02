@@ -31,9 +31,14 @@ if ($conn->connect_error) {
 }
 
 // Query para obter os dados de temperatura
-$sql = "SELECT IDTemperatura, Temperatura, Hora, IDJogo
+$sql = "SELECT 
+        IDTemperatura AS idtemperatura,
+        Temperatura   AS temperatura,
+        Hora          AS hora,
+        IDJogo        AS idjogo
         FROM Temperatura
         WHERE is_active = 1
+        AND is_valid = 1
         ORDER BY IDTemperatura ASC";
 $result = $conn->query($sql);
 
