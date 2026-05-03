@@ -23,6 +23,18 @@ Ao abrir a aplicação no emulador, preencha os campos de ligação da seguinte 
 * **Password:** A sua password da base de dados.
 * **Database:** `maze_local` (O nome da base de dados configurada no MySQL).
 
+## 4. Usar num Telemóvel Android Físico
+Ao usar a aplicação num telemóvel físico em vez do emulador, são necessários dois passos adicionais:
+
+* **Firewall:** Desative temporariamente a firewall do PC para permitir ligações externas na porta `9000`.
+* **Host:** Em vez de `10.0.2.2:9000`, utilize o **IP local do PC** onde o Docker está a correr (ex: `192.168.1.X:9000`).
+
+Para descobrir o IP do seu PC, execute no terminal:
+* **Windows:** `ipconfig` (procure "Endereço IPv4")
+* **Mac/Linux:** `ifconfig` ou `ip a`
+
+O telemóvel e o PC têm de estar ligados à **mesma rede Wi-Fi** ou fisicamente por cabo.
+
 ## Notas Importantes
 * **Docker:** Certifique-se de que os containers Docker estão em execução.
 * **Base de Dados:** Confirme que a base de dados se chama exatamente `maze_local` e que a tabela `utilizadores` contém as credenciais que está a usar.
