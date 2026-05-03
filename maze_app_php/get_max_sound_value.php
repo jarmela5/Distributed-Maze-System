@@ -30,26 +30,27 @@ if ($conn->connect_error) {
     exit;
 }
 
-// Query para obter o limiar máximo de ruído
-$sql = "SELECT DefaultNoiseThreshold AS maximo
-        FROM ConfiguracaoSistema
-        WHERE is_active = 1
-        ORDER BY ID DESC
-        LIMIT 1";
+$sql = "SELECT 
+            AVG(so.Som) AS media,
+            MAX(c.DefaultNoiseThreshold) AS threshold
+        FROM ConfiguracaoSistema c
+        LEFT JOIN Som so ON so.is_valid = 1
+        WHERE c.is_active = 1";
+
 $result = $conn->query($sql);
 
-if ($result) {
-    $row = $result->fetch_assoc();
-    
-    if ($row) {
-        $response['success'] = true;
-        $response['data'] = $row; // Retorna o objeto: {"maximo": "valor"}
-        $response['message'] = 'Configuração de som carregada.';
-    } else {
-        $response['message'] = 'Nenhuma configuração de som encontrada.';
-    }
+if ($result && $row = $result->fetch_assoc()) {
+    $media = $row['media'] !== null ? (float)$row['media'] : 0.0;
+    $threshold = $row['threshold'] !== null ? (float)$row['threshold'] : 15.0;
+
+    $response['success'] = true;
+    $response['message'] = 'Configuração de som carregada.';
+    $response['data'] = array(
+        // Som só tem limite superior (ruído abaixo da média não é problema)
+        "maximo" => round($media + $threshold, 2)
+    );
 } else {
-    $response['message'] = "Erro na query: " . $conn->error;
+    $response['message'] = 'Nenhuma configuração de som encontrada.';
 }
 
 $conn->close();

@@ -25,18 +25,24 @@ if ($conn->connect_error) {
     exit;
 }
 
-$sql = "SELECT 0.00 AS minimo, DefaultTempThreshold AS maximo
-        FROM ConfiguracaoSistema
-        WHERE is_active = 1
-        ORDER BY ID DESC
-        LIMIT 1";
+$sql = "SELECT 
+            AVG(t.Temperatura) AS media,
+            MAX(c.DefaultTempThreshold) AS threshold
+        FROM ConfiguracaoSistema c
+        LEFT JOIN Temperatura t ON t.is_valid = 1
+        WHERE c.is_active = 1";
+
 $result = $conn->query($sql);
 
 if ($result && $row = $result->fetch_assoc()) {
+    $media = $row['media'] !== null ? (float)$row['media'] : 0.0;
+    $threshold = $row['threshold'] !== null ? (float)$row['threshold'] : 10.0;
+
     $response['success'] = true;
+    $response['message'] = '';
     $response['data'] = array(
-        "minimo" => (float)$row['minimo'],
-        "maximo" => (float)$row['maximo']
+        "minimo" => round($media - $threshold, 2),
+        "maximo" => round($media + $threshold, 2)
     );
 } else {
     $response['message'] = "Não foram encontrados limites na tabela.";
