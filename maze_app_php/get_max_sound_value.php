@@ -3,6 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header('Content-Type: application/json');
 
+// Estrutura padrão para o seu Android processar sem erros
 $response = array('success' => false, 'message' => '', 'data' => null);
 
 $username = $_REQUEST['username'] ?? '';
