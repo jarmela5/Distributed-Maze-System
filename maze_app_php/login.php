@@ -2,6 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header('Content-Type: application/json');
+require_once __DIR__ . '/simulation_context.php';
 
 $response = array('success' => false, 'message' => '');
 
@@ -41,9 +42,11 @@ if ($stmt) {
     $user = $result->fetch_assoc();
 
     if ($user) {
+        $activeSimulationId = getActiveSimulationId($conn, $username);
         $response['success'] = true;
         $response['IDGrupo'] = (int)$user['Equipa'];
         $response['tipo'] = $user['Tipo'];
+        $response['active_simulation_id'] = $activeSimulationId;
         $response['message'] = 'Login bem-sucedido.';
     } else {
         $response['message'] = 'Utilizador não encontrado na tabela Utilizador.';

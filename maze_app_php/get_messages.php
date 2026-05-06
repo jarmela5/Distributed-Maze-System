@@ -2,6 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header('Content-Type: application/json');
+require_once __DIR__ . '/simulation_context.php';
 
 // Estrutura de resposta idêntica ao login.php
 $response = array('success' => false, 'message' => '', 'data' => array());
@@ -31,32 +32,47 @@ if ($conn->connect_error) {
     exit;
 }
 
-// 3. Consulta
-$sql = "SELECT 
-        ID        AS id,
+$activeSimulationId = getActiveSimulationId($conn, $username);
+if ($activeSimulationId === null) {
+    $response['success'] = true;
+    $response['message'] = 'Sem simulação ativa para este utilizador.';
+    $response['active_simulation_id'] = null;
+    $response['data'] = array();
+    $conn->close();
+    echo json_encode($response);
+    exit;
+}
+
+$stmt = $conn->prepare("SELECT
+        ID         AS id,
         TipoAlerta AS tipoalerta,
-        Hora      AS hora,
-        Msg       AS msg,
-        Leitura   AS leitura,
-        Sensor    AS sensor,
-        Sala      AS sala,
-        IDJogo    AS idjogo
+        Hora       AS hora,
+        Msg        AS msg,
+        Leitura    AS leitura,
+        Sensor     AS sensor,
+        Sala       AS sala,
+        IDJogo     AS idjogo
         FROM Mensagens
         WHERE is_active = 1
-        ORDER BY ID DESC";
-$result = $conn->query($sql);
+          AND IDJogo = ?
+        ORDER BY ID DESC");
 
-if ($result) {
+if ($stmt) {
+    $stmt->bind_param("i", $activeSimulationId);
+    $stmt->execute();
+    $result = $stmt->get_result();
     $messages = array();
     while ($row = $result->fetch_assoc()) {
         $messages[] = $row;
     }
     
     $response['success'] = true;
+    $response['active_simulation_id'] = $activeSimulationId;
     $response['data'] = $messages; // As mensagens vão aqui dentro
     $response['message'] = 'Mensagens carregadas com sucesso.';
+    $stmt->close();
 } else {
-    $response['message'] = 'Erro ao executar consulta: ' . $conn->error;
+    $response['message'] = 'Erro na preparação da query: ' . $conn->error;
 }
 
 $conn->close();

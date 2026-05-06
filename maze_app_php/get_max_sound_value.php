@@ -2,6 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header('Content-Type: application/json');
+require_once __DIR__ . '/simulation_context.php';
 
 // Estrutura padrão para o seu Android processar sem erros
 $response = array('success' => false, 'message' => '', 'data' => null);
@@ -30,27 +31,44 @@ if ($conn->connect_error) {
     exit;
 }
 
-$sql = "SELECT 
+$activeSimulationId = getActiveSimulationId($conn, $username);
+if ($activeSimulationId === null) {
+    $response['success'] = true;
+    $response['message'] = 'Sem simulação ativa para este utilizador.';
+    $response['active_simulation_id'] = null;
+    $response['data'] = null;
+    $conn->close();
+    echo json_encode($response);
+    exit;
+}
+
+$stmt = $conn->prepare("SELECT
             AVG(so.Som) AS media,
-            MAX(c.DefaultNoiseThreshold) AS threshold
+            MAX(COALESCE(s.OutlierNoiseThreshold, c.DefaultNoiseThreshold)) AS threshold
         FROM ConfiguracaoSistema c
-        LEFT JOIN Som so ON so.is_valid = 1
-        WHERE c.is_active = 1";
+        LEFT JOIN Simulacao s ON s.IDSimulacao = ?
+        LEFT JOIN Som so ON so.is_valid = 1 AND so.is_active = 1 AND so.IDJogo = ?
+        WHERE c.is_active = 1");
 
-$result = $conn->query($sql);
+if ($stmt) {
+    $stmt->bind_param("ii", $activeSimulationId, $activeSimulationId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
 
-if ($result && $row = $result->fetch_assoc()) {
     $media = $row['media'] !== null ? (float)$row['media'] : 0.0;
     $threshold = $row['threshold'] !== null ? (float)$row['threshold'] : 15.0;
 
     $response['success'] = true;
+    $response['active_simulation_id'] = $activeSimulationId;
     $response['message'] = 'Configuração de som carregada.';
     $response['data'] = array(
         // Som só tem limite superior (ruído abaixo da média não é problema)
         "maximo" => round($media + $threshold, 2)
     );
+    $stmt->close();
 } else {
-    $response['message'] = 'Nenhuma configuração de som encontrada.';
+    $response['message'] = 'Erro na preparação da query: ' . $conn->error;
 }
 
 $conn->close();
