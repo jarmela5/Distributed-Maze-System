@@ -2,6 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header('Content-Type: application/json');
+require_once __DIR__ . '/simulation_context.php';
 
 // Estrutura padrão para o Android não crashar
 $response = array('success' => false, 'message' => '', 'data' => array());
@@ -30,29 +31,43 @@ if ($conn->connect_error) {
     exit;
 }
 
-// Query para obter os dados de temperatura
-$sql = "SELECT 
+$activeSimulationId = getActiveSimulationId($conn, $username);
+if ($activeSimulationId === null) {
+    $response['success'] = true;
+    $response['message'] = 'Sem simulação ativa para este utilizador.';
+    $response['active_simulation_id'] = null;
+    $response['data'] = array();
+    $conn->close();
+    echo json_encode($response);
+    exit;
+}
+$stmt = $conn->prepare("SELECT
         IDTemperatura AS idtemperatura,
         Temperatura   AS temperatura,
         Hora          AS hora,
         IDJogo        AS idjogo
         FROM Temperatura
         WHERE is_active = 1
-        AND is_valid = 1
-        ORDER BY IDTemperatura ASC";
-$result = $conn->query($sql);
+          AND is_valid = 1
+          AND IDJogo = ?
+        ORDER BY IDTemperatura ASC");
 
-if ($result) {
+if ($stmt) {
+    $stmt->bind_param("i", $activeSimulationId);
+    $stmt->execute();
+    $result = $stmt->get_result();
     $tempData = array();
     while ($row = $result->fetch_assoc()) {
         $tempData[] = $row;
     }
-    
+
     $response['success'] = true;
+    $response['active_simulation_id'] = $activeSimulationId;
     $response['data'] = $tempData;
     $response['message'] = 'Dados de temperatura carregados com sucesso.';
+    $stmt->close();
 } else {
-    $response['message'] = "Erro na query: " . $conn->error;
+    $response['message'] = "Erro na preparação da query: " . $conn->error;
 }
 
 $conn->close();

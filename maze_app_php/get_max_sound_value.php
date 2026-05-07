@@ -6,23 +6,13 @@ header('Content-Type: application/json');
 // Estrutura padrão para o seu Android processar sem erros
 $response = array('success' => false, 'message' => '', 'data' => null);
 
-$username = $_REQUEST['username'] ?? '';
-$password = $_REQUEST['password'] ?? '';
-$database = $_REQUEST['database'] ?? '';
-
-if (empty($username) || empty($password) || empty($database)) {
-    $response['message'] = 'Preencha todos os campos.';
-    echo json_encode($response);
-    exit;
-}
-
-// Configuração Docker
-$host = 'mysql'; 
-$db_user = $username; 
-$db_pass = $password; 
+$host = '194.210.86.10'; 
+$username= 'aluno';
+$password= 'aluno';
+$database= 'maze';
 
 // Conexão mysqli
-$conn = new mysqli($host, $db_user, $db_pass, $database);
+$conn = new mysqli($host, $username, $password, $database);
 
 if ($conn->connect_error) {
     $response['message'] = "Erro de conexão: " . $conn->connect_error;
@@ -30,27 +20,29 @@ if ($conn->connect_error) {
     exit;
 }
 
-$sql = "SELECT 
-            AVG(so.Som) AS media,
-            MAX(c.DefaultNoiseThreshold) AS threshold
-        FROM ConfiguracaoSistema c
-        LEFT JOIN Som so ON so.is_valid = 1
-        WHERE c.is_active = 1";
+$stmt = $conn->prepare("SELECT
+            normalnoise,
+            noisevartoleration
+        FROM setupmaze
+        ORDER BY ID DESC
+        LIMIT 1");
 
-$result = $conn->query($sql);
+if ($stmt) {
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
 
-if ($result && $row = $result->fetch_assoc()) {
-    $media = $row['media'] !== null ? (float)$row['media'] : 0.0;
-    $threshold = $row['threshold'] !== null ? (float)$row['threshold'] : 15.0;
+    $normalNoise = ($row && $row['normalnoise'] !== null) ? (float)$row['normalnoise'] : 0.0;
+    $noiseVarToleration = ($row && $row['noisevartoleration'] !== null) ? (float)$row['noisevartoleration'] : 15.0;
 
     $response['success'] = true;
     $response['message'] = 'Configuração de som carregada.';
     $response['data'] = array(
-        // Som só tem limite superior (ruído abaixo da média não é problema)
-        "maximo" => round($media + $threshold, 2)
+        "maximo" => round($normalNoise + $noiseVarToleration, 2)
     );
+    $stmt->close();
 } else {
-    $response['message'] = 'Nenhuma configuração de som encontrada.';
+    $response['message'] = 'Erro na preparação da query: ' . $conn->error;
 }
 
 $conn->close();

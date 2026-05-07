@@ -9,13 +9,11 @@ $username = $_REQUEST['username'] ?? '';
 $password = $_REQUEST['password'] ?? '';
 $database = $_REQUEST['database'] ?? '';
 
-$host = 'mysql'; // No Docker use o nome do serviço
+$host = '194.210.86.10'; // No Docker use o nome do serviço
+$username= 'aluno';
+$password= 'aluno';
+$database= 'maze';
 
-if (empty($username) || empty($password) || empty($database)) {
-    $response['message'] = 'Preencha todos os campos.';
-    echo json_encode($response);
-    exit;
-}
 
 $conn = new mysqli($host, $username, $password, $database);
 
@@ -25,27 +23,32 @@ if ($conn->connect_error) {
     exit;
 }
 
-$sql = "SELECT 
-            AVG(t.Temperatura) AS media,
-            MAX(c.DefaultTempThreshold) AS threshold
-        FROM ConfiguracaoSistema c
-        LEFT JOIN Temperatura t ON t.is_valid = 1
-        WHERE c.is_active = 1";
+$stmt = $conn->prepare("SELECT
+            normaltemperature,
+            temperaturevarhightoleration,
+            temperaturevarlowtoleration
+        FROM setupmaze
+        ORDER BY ID DESC
+        LIMIT 1");
 
-$result = $conn->query($sql);
+if ($stmt) {
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
 
-if ($result && $row = $result->fetch_assoc()) {
-    $media = $row['media'] !== null ? (float)$row['media'] : 0.0;
-    $threshold = $row['threshold'] !== null ? (float)$row['threshold'] : 10.0;
+    $normalTemperature = ($row && $row['normaltemperature'] !== null) ? (float)$row['normaltemperature'] : 0.0;
+    $highToleration = ($row && $row['temperaturevarhightoleration'] !== null) ? (float)$row['temperaturevarhightoleration'] : 10.0;
+    $lowToleration = ($row && $row['temperaturevarlowtoleration'] !== null) ? (float)$row['temperaturevarlowtoleration'] : 10.0;
 
     $response['success'] = true;
     $response['message'] = '';
     $response['data'] = array(
-        "minimo" => round($media - $threshold, 2),
-        "maximo" => round($media + $threshold, 2)
+        "minimo" => round($normalTemperature - $lowToleration, 2),
+        "maximo" => round($normalTemperature + $highToleration, 2)
     );
+    $stmt->close();
 } else {
-    $response['message'] = "Não foram encontrados limites na tabela.";
+    $response['message'] = "Erro na preparação da query: " . $conn->error;
 }
 
 $conn->close();
