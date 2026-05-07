@@ -11,7 +11,7 @@ function getActiveSimulationId(mysqli $conn, string $username): ?int
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    $isAdmin = ($row && $row['Tipo'] === 'admin');
+    $isAdmin = ($row && $row['Tipo'] === 'admin' || $row && $row['Tipo'] === 'android');
 
     if ($isAdmin) {
         // Admin vê a simulação ativa mais recente de qualquer utilizador
