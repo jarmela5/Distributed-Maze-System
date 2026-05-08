@@ -2,14 +2,22 @@
 session_start();
 require_once 'config.php';
 
-// verificar login
-if (!isset($_SESSION['IDUtilizador'])) {
+// 1. Verificar se o utilizador tem sessão iniciada
+if (!isset($_SESSION['IDUtilizador']) || !isset($_SESSION['mysql_user']) || !isset($_SESSION['mysql_pass'])) {
     header("Location: login.php");
     exit();
 }
 
-$username = $_SESSION['username'];
 $IDUtilizador = $_SESSION['IDUtilizador'];
+$username = $_SESSION['username'];
+
+// 2. IMPORTANTE: Criar a ligação $pdo nesta página usando os dados da sessão
+$pdo = connectToDatabase($_SESSION['mysql_user'], $_SESSION['mysql_pass']);
+
+if (!$pdo) {
+    die("Erro ao ligar à base de dados. Por favor, faça login novamente.");
+}
+
 
 // procurar equipa do user
 try {

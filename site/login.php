@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -11,7 +10,7 @@
         <h2>Login</h2>
 
         <?php
-        // erro se nao ha credenciais correspondentes na bd
+        // Mostra o erro se o parâmetro 'erro' estiver presente no URL
         if (isset($_GET['erro'])) {
             echo '<p style="color:red; text-align:center;">Utilizador ou senha incorretos!</p>';
         }

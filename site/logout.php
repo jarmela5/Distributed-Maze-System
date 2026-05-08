@@ -1,5 +1,12 @@
 <?php
 session_start();
+require_once 'config.php';
+
+if (!isset($_SESSION['IDUtilizador'])) {
+    http_response_code(401);
+    echo json_encode(['erro' => 'Não autenticado']);
+    exit();
+}
 
 $_SESSION = array();
 
