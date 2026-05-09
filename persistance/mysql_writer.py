@@ -37,7 +37,7 @@ class MySQLWriter:
     def _conectar_mysql(self):
         conn = mysql.connector.connect(
             user='software',
-            host='localhost',
+            host='127.0.0.1',
             database='maze_local',
             passwd='software'
         )

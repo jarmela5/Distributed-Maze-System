@@ -5,7 +5,7 @@ from datetime import datetime
 
 class MongoRepository:
     def __init__(self, uri=None, db_name="distributed_maze"):
-        uri = uri or os.environ.get("MONGO_URI", "mongodb://root:root@localhost:27017/")
+        uri = uri or os.environ.get("MONGO_URI", "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=rs0")
         self.client = pymongo.MongoClient(uri)
         self.db = self.client[db_name]
 
