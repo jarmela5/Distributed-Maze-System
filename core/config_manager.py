@@ -124,6 +124,21 @@ class ConfigManager:
             "normal": result[0],
             "tolerance": result[1]
         }
+    
+    def finish_simulation(self):
+        cursor = self.conn_local.cursor()
+
+        cursor.execute("""
+            UPDATE Simulacao
+            SET Estado = 'Inativo'
+            WHERE Estado = 'Ativo'
+        """)
+
+        self.conn_local.commit()
+
+        cursor.close()
+
+        print("[SIMULATION] marcada como Inativa")
 
     def close(self):
         if self.conn_cloud.is_connected():

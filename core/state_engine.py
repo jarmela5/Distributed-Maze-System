@@ -113,6 +113,7 @@ class StateEngine:
 
             self.game_started = False
             event["current_room"] = self.marsami_positions.get(marsami_id)
+            event["simulation_ended"] = True
 
             return event, []
 
