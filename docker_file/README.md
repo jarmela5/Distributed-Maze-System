@@ -12,7 +12,7 @@ Um Replica Set é um conjunto de 3 instâncias MongoDB que se sincronizam automa
 - **mongo2** → Secundário (cópia automática)
 - **mongo3** → Secundário (cópia automática)
 
-Se o primário cair, um dos secundários é eleito automaticamente como novo primário.
+Se o primário cair, um dos secundários é eleito automaticamente como novo primário. O código Python deteta isso automaticamente e reconecta ao novo primário.
 
 ---
 
@@ -28,12 +28,11 @@ Para que o Python e o Mongo Compass consigam resolver os nomes `mongo1`, `mongo2
 4. Na barra de endereço escreve: `C:\Windows\System32\drivers\etc`
 5. Em baixo onde diz "Text Documents" muda para **All Files**
 6. Abre o ficheiro **hosts**
-7. Adiciona estas 3 linhas no fim do ficheiro:
+7. Adiciona esta linha no fim do ficheiro:
 
 ```
-127.0.0.1 mongo1
-127.0.0.1 mongo2
-127.0.0.1 mongo3
+127.0.0.1 mongo1 mongo2 mongo3
+
 ```
 
 8. **File → Save**
@@ -42,7 +41,9 @@ Para que o Python e o Mongo Compass consigam resolver os nomes `mongo1`, `mongo2
 
 ## Passo 2 — docker-compose.yml
 
-Substitui o `docker-compose.yml` pelo dentro desta pasta
+Substitui o `docker-compose.yml` pelo que está dentro desta pasta.
+
+---
 
 ## Passo 3 — Arrancar os contentores
 
@@ -50,8 +51,9 @@ Se já tinhas dados antigos, limpa-os primeiro:
 
 ```powershell
 docker compose down
-Remove-Item -Recurse -Force mongo_data1\*, mongo_data2\*, mongo_data3\*
-ou se houver: Remove-Item -Recurse -Force mongo_data
+Remove-Item -Recurse -Force mongo_data1, mongo_data2, mongo_data3
+# ou se houver pasta antiga:
+Remove-Item -Recurse -Force mongo_data
 ```
 
 Arrancar:
@@ -85,28 +87,54 @@ Deves ver `{ ok: 1 }` no fim.
 
 ## Passo 5 — Verificar o estado do Replica Set
 
+Para uma visão resumida:
+
 ```bash
-docker exec -it mongo1 mongosh --eval "rs.status()"
+docker exec -it mongo1 mongosh --eval "rs.status().members.map(m => ({name: m.name, state: m.stateStr}))"
 ```
 
 Deves ver:
-- `mongo1` → `PRIMARY`
-- `mongo2` → `SECONDARY`
-- `mongo3` → `SECONDARY`
+- `mongo1:27017` → `PRIMARY`
+- `mongo2:27017` → `SECONDARY`
+- `mongo3:27017` → `SECONDARY`
 
 ---
 
+## Passo 6 — Recuperar após um nó cair
 
+Se um nó cair ou ficar unreachable, reinicia os 3 containers:
 
-## Passo 6 — Mongo Compass
-
-Para ligar ao Mongo Compass usa a seguinte connection string:
-
-```
-mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=rs0
+```bash
+docker restart mongo1 mongo2 mongo3
 ```
 
-> **Requer** que o ficheiro `hosts` tenha sido editado (Passo 1), caso contrário o Compass não consegue resolver os nomes `mongo1`, `mongo2`, `mongo3`.
+Aguarda 20-30 segundos e verifica o estado:
+
+```bash
+docker exec -it mongo1 mongosh --eval "rs.status().members.map(m => ({name: m.name, state: m.stateStr}))"
+```
+
+Confirma que há um `PRIMARY` antes de correr o programa Python. O PRIMARY pode ser qualquer um dos 3 nós após o reinício.
+
+> **Nota:** Usa sempre `docker compose stop` para parar os containers em vez de `docker compose down`, para não perder a configuração do Replica Set.
+
+---
+
+## Passo 7 — Mongo Compass
+
+Para ver todos os nós ao mesmo tempo (requer o ficheiro `hosts` editado):
+```
+mongodb://localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0
+```
+
+
+Para ligar a cada nó individualmente (não requer o ficheiro `hosts`):
+
+```
+mongodb://localhost:27017/?directConnection=true   ← mongo1
+mongodb://localhost:27018/?directConnection=true   ← mongo2
+mongodb://localhost:27019/?directConnection=true   ← mongo3
+```
 
 ---
 
@@ -126,11 +154,11 @@ E depois repete o **Passo 4** para inicializar o Replica Set novamente.
 
 ## Resumo dos portos
 
-| Serviço      | Porto local | Acesso                        |
-|--------------|-------------|-------------------------------|
-| PHP          | 9000        | http://localhost:9000          |
-| phpMyAdmin   | 9001        | http://localhost:9001          |
-| MySQL        | 3306        | localhost:3306                 |
-| mongo1       | 27017       | mongo1:27017 (primário)        |
-| mongo2       | 27018       | mongo2:27017 (secundário)      |
-| mongo3       | 27019       | mongo3:27017 (secundário)      |
+| Serviço    | Porto local | Acesso                       |
+|------------|-------------|------------------------------|
+| PHP        | 9000        | http://localhost:9000         |
+| phpMyAdmin | 9001        | http://localhost:9001         |
+| MySQL      | 3306        | localhost:3306                |
+| mongo1     | 27017       | localhost:27017 (primário)    |
+| mongo2     | 27018       | localhost:27018 (secundário)  |
+| mongo3     | 27019       | localhost:27019 (secundário)  |
