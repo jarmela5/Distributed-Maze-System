@@ -41,20 +41,20 @@ try {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_criar'])) {
 
     $descricao = trim($_POST['descricao']);
-    $temp = $_POST['temp_max'];
-    $som = $_POST['som_max'];
+    $temp = !empty($_POST['temp_max']) ? $_POST['temp_max'] : null;
+    $som  = !empty($_POST['som_max'])  ? $_POST['som_max']  : null;
 
     try {
         $sql = "CALL CriarJogo(:equipa, :desc, NOW(), 'iniciada', :temp_max, :som_max, @p_idJogo)";
 
         $stmt = $pdo->prepare($sql);
 
-        $stmt->execute([
-            ':equipa'   => $equipa,
-            ':desc'     => $descricao,
-            ':temp_max' => $temp,
-            ':som_max'  => $som
-        ]);
+        $stmt->bindParam(':equipa',   $equipa,    PDO::PARAM_STR);
+        $stmt->bindParam(':desc',     $descricao, PDO::PARAM_STR);
+        $stmt->bindParam(':temp_max', $temp,      PDO::PARAM_INT);
+        $stmt->bindParam(':som_max',  $som,       PDO::PARAM_INT);
+
+        $stmt->execute();
 
         header("Location: dashboard.php?sucesso=1");
         exit();
@@ -62,6 +62,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_criar'])) {
     } catch (PDOException $e) {
         $erro_msg = "Erro ao criar jogo: " . $e->getMessage();
     }
+
+}
+try {
+    $sqlConfig = "SELECT DefaultTempThreshold, DefaultNoiseThreshold FROM ConfiguracaoSistema LIMIT 1";
+    $stmtConfig = $pdo->query($sqlConfig);
+    $config = $stmtConfig->fetch();
+
+    $defaultTemp = $config['DefaultTempThreshold'] ?? '';
+    $defaultNoise = $config['DefaultNoiseThreshold'] ?? '';
+
+} catch (PDOException $e) {
+    $defaultTemp = '';
+    $defaultNoise = '';
 }
 ?>
 <!DOCTYPE html>
@@ -223,10 +236,10 @@ button:hover{
                     <textarea name="descricao" rows="4" placeholder="Descrição do jogo" required></textarea>
 
                     <label>Variação máxima de Temperatura (°C)</label>
-                    <input type="number" name="temp_max" placeholder="Ex: 5" required>
+                    <input type="number" name="temp_max" placeholder="Ex: 5" value="<?php echo htmlspecialchars($defaultTemp); ?>">
 
                     <label>Variação máxima de Som (dB)</label>
-                    <input type="number" name="som_max" placeholder="Ex: 10" required>
+                    <input type="number" name="som_max" placeholder="Ex: 10" value="<?php echo htmlspecialchars($defaultNoise); ?>">
 
                     <div class="buttons">
                         <button type="submit" name="btn_criar" class="btn-create">Criar jogo</button>
