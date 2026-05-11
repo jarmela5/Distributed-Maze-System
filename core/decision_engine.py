@@ -42,7 +42,7 @@ class DecisionEngine:
 
         self._mqtt.publish("pisid_mazeact", message)
 
-        # print("[ACT]", message)
+  #      print("[ACT]", message)
 
 
     def evaluate(self):
@@ -125,30 +125,21 @@ class DecisionEngine:
     def _check_noise(self):
 
         sound = self.state_engine.last_sound_value
+        normal= self.normal_noise
 
         if sound is None:
             return
 
-        limit = self.normal_noise + self.noise_tol
+        limit = normal + self.noise_tol
 
         if sound <= limit:
+            if sound <= normal:
+                    self.open_all_corridors()
             return
+        else:
+            print("[NOISE] High noise detected")
+            self.close_all_corridors()
 
-        print("[NOISE] High noise detected")
-
-        graph = self.state_engine.room_graph
-
-        closed = 0
-
-        for origin in graph:
-            for destiny in graph[origin]:
-
-                if closed >= 2:
-                    return
-
-                self.close_corridor(origin, destiny)
-
-                closed += 1
 
 
     def _balance_rooms(self):
