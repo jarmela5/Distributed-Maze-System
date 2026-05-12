@@ -3,7 +3,7 @@ from datetime import datetime
 
 class StateEngine:
 
-    def __init__(self, maze_graph, threshold):
+    def __init__(self, maze_graph, threshold,normal_temp, normal_noise):
 
         self.room_graph = maze_graph
 
@@ -14,14 +14,17 @@ class StateEngine:
         self.temp_sum = 0
         self.temp_count = 0
 
-        self.sound_sum = 0
-        self.sound_count = 0
+        #começa com valores normais vindo do setup maze, para evitar outliers no início da simulação
+        self.temp_sum = normal_temp
+        self.temp_count = 1
+
+        self.sound_sum = normal_noise
+        self.sound_count = 1
 
         self.temp_threshold = threshold["temp"]
         self.sound_threshold = threshold["noise"]
 
         self.game_started = False
-
         self.last_temp_value = None
         self.last_temp_timestamp = None
 

@@ -138,7 +138,7 @@ BEGIN
 
         -- Simulacao
         SET @sql = CONCAT(
-            'GRANT SELECT, INSERT ON maze_local.Simulacao TO \'', p_Username, '\'@\'%\''
+            'GRANT SELECT, INSERT, UPDATE ON maze_local.Simulacao TO \'', p_Username, '\'@\'%\''
         );
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
