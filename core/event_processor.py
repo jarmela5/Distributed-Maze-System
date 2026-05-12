@@ -2,6 +2,7 @@ from core.state_engine import StateEngine
 from core.decision_engine import DecisionEngine
 from core.alert_engine import AlertEngine  
 from persistance.mongo_repository import MongoRepository
+from core.config_manager import ConfigManager
 import json
 from datetime import datetime
 import re
@@ -13,7 +14,8 @@ class EventProcessor:
         self.state_engine = state_engine
         self.mongo_repo = mongo_repo
         self.decision_engine = decision_engine
-        self.alert_engine = alert_engine # Nova dependência centralizada
+        self.alert_engine = alert_engine
+        self.config_manager = ConfigManager()
 
     def process(self, topic, payload):
         try:
@@ -77,6 +79,9 @@ class EventProcessor:
                 event["timestamp"] = datetime.now()
 
             self.mongo_repo.save_movement(event)
+
+            if event.get("simulation_ended"):
+                self.config_manager.finish_simulation()
 
             if event.get("is_valid") and changed_rooms:
                 self.mongo_repo.save_room_occupancy(
