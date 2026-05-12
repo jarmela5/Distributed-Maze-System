@@ -125,6 +125,28 @@ class ConfigManager:
             "tolerance": result[1]
         }
     
+    def get_normal_values(self):
+
+        cursor = self.conn_cloud.cursor()
+
+        cursor.execute("""
+            SELECT normalnoise, normaltemperature
+            FROM SetupMaze
+            LIMIT 1
+        """)
+
+        result = cursor.fetchone()
+        cursor.close()
+
+        if not result:
+            raise Exception("Valores normais não encontrados em SetupMaze")
+
+        return {
+            "normal_noise": float(result[0]),
+            "normal_temp": float(result[1])
+        }
+
+
     def finish_simulation(self):
         cursor = self.conn_local.cursor()
 

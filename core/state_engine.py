@@ -3,24 +3,25 @@ from datetime import datetime
 
 class StateEngine:
 
-    def __init__(self, maze_graph, threshold):
+    def __init__(self, maze_graph, threshold,normal_temp, normal_noise):
 
         self.room_graph = maze_graph
 
         self.rooms = {}
         self.marsami_positions = {}
         self.marsami_types = {}
-        self.temp_sum = 0
-        self.temp_count = 0
 
-        self.sound_sum = 0
-        self.sound_count = 0
+        #começa com valores normais vindo do setup maze, para evitar outliers no início da simulação
+        self.temp_sum = normal_temp
+        self.temp_count = 1
+
+        self.sound_sum = normal_noise
+        self.sound_count = 1
 
         self.temp_threshold = threshold["temp"]
         self.sound_threshold = threshold["noise"]
 
         self.game_started = False
-
         self.last_temp_value = None
         self.last_temp_timestamp = None
 
@@ -137,13 +138,7 @@ class StateEngine:
             event["reason"] = "Invalid timestamp"
             return event
 
-        if self.temp_count == 0:
-            self.temp_sum += temp
-            self.temp_count += 1
-            self.last_temp_value = temp
-            self.last_temp_timestamp = timestamp
-            return event
-
+        
         media = self.temp_sum / self.temp_count
         delta = abs(temp - media)
 
@@ -175,11 +170,7 @@ class StateEngine:
             event["reason"] = "Invalid timestamp"
             return event
 
-        if self.sound_count == 0:
-            self.sound_sum += sound
-            self.sound_count += 1
-            return event
-
+    
         media = self.sound_sum / self.sound_count
         delta = abs(sound - media)
 

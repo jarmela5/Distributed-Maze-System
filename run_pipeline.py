@@ -23,9 +23,10 @@ def main():
     temp_var   = config_manager.get_temperature_config()
     noise_var  = config_manager.get_noise_config()
     threshold_var = config_manager.get_thresholds()
+    normal_values = config_manager.get_normal_values()
 
     mongo_repo   = MongoRepository()
-    state_engine = StateEngine(maze_graph, threshold_var)
+    state_engine  = StateEngine(maze_graph, threshold_var, normal_values["normal_temp"], normal_values["normal_noise"])
 
     common_mqtt = mqtt.Client(client_id=f"maze_engines_{PLAYER_ID}")
     common_mqtt.connect(BROKER, PORT)
