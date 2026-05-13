@@ -28,7 +28,7 @@ class AlertEngine:
 
         self.ac_on = False
 
-        self.closed_doors = set()
+        self.all_corridors_closed = False
 
         self.intervals = {
             1: 10,
@@ -167,42 +167,19 @@ class AlertEngine:
 
             self.last_noise_alert_time = now
 
-            if value >= self.last_noise_value:
-                self._find_and_close_next()
+        if current_level >= 3:
+            self.close_all_corridors()
 
-        if value <= self.n_normal and len(self.closed_doors) > 0:
+        if value <= self.n_normal and self.all_corridors_closed:
             self.open_all_corridors()
 
         self.last_noise_level = current_level
         self.last_noise_value = value
 
-    def close_corridor(self, origin, destiny):
-
-        payload = {
-            "Type": "CloseDoor",
-            "Player": self.player_id,
-            "RoomOrigin": int(origin),
-            "RoomDestiny": int(destiny)
-        }
-
-        self._publish_act(payload)
-
-        print(f"[ACTUATOR] CloseDoor: {origin} -> {destiny}")
-
-    def open_corridor(self, origin, destiny):
-
-        payload = {
-            "Type": "OpenDoor",
-            "Player": self.player_id,
-            "RoomOrigin": int(origin),
-            "RoomDestiny": int(destiny)
-        }
-
-        self._publish_act(payload)
-
-        print(f"[ACTUATOR] OpenDoor: {origin} -> {destiny}")
-
     def close_all_corridors(self):
+
+        if self.all_corridors_closed:
+            return
 
         payload = {
             "Type": "CloseAllDoor",
@@ -211,6 +188,7 @@ class AlertEngine:
 
         self._publish_act(payload)
 
+        self.all_corridors_closed = True
         print("[ACTUATOR] CloseAllDoor enviado.")
 
     def open_all_corridors(self):
@@ -222,25 +200,9 @@ class AlertEngine:
 
         self._publish_act(payload)
 
-        self.closed_doors.clear()
+        self.all_corridors_closed = False
 
         print("[ACTUATOR] OpenAllDoor enviado.")
-
-    def _find_and_close_next(self):
-
-        for origin, neighbors in self.graph.items():
-
-            for dest in neighbors:
-
-                door = tuple(sorted((int(origin), int(dest))))
-
-                if door not in self.closed_doors:
-
-                    self.closed_doors.add(door)
-
-                    self.close_corridor(origin, dest)
-
-                    return
 
     def _generate_alert(self, sensor, value, msg, tipo_alerta):
 
