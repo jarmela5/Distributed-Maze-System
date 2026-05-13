@@ -138,7 +138,15 @@ BEGIN
 
         -- Simulacao
         SET @sql = CONCAT(
-            'GRANT SELECT, INSERT ON maze_local.Simulacao TO \'', p_Username, '\'@\'%\''
+            'GRANT SELECT, INSERT, UPDATE ON maze_local.Simulacao TO \'', p_Username, '\'@\'%\''
+        );
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+        -- ConfiguracaoSistema
+        SET @sql = CONCAT(
+            'GRANT SELECT ON maze_local.ConfiguracaoSistema TO \'', p_Username, '\'@\'%\''
         );
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
@@ -339,7 +347,7 @@ CREATE DEFINER=`root`@`%` PROCEDURE `CriarJogo` (IN `p_equipa` INT, IN `p_descri
     -- validar timestamp duplicado
     IF EXISTS (
         SELECT 1 FROM Simulacao
-        WHERE DataHoraInicio = p_dataHoraInicio
+        WHERE Estado = 'Ativo'
     ) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Já existe uma simulação com este timestamp';
@@ -561,8 +569,8 @@ CREATE TABLE `Simulacao` (
   `Estado` varchar(20) DEFAULT 'Ativo',
   `IDUtilizador` int NOT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `OutlierTempThreshold` DECIMAL(6,2) NOT NULL,
-  `OutlierNoiseThreshold` DECIMAL(6,2) NOT NULL
+  `OutlierTempThreshold` DECIMAL(6,2) NULL,
+  `OutlierNoiseThreshold` DECIMAL(6,2) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -583,7 +591,7 @@ CREATE TABLE `Som` (
 
 -- --------------------------------------------------------
 
---
+-- 
 -- Estrutura da tabela `Temperatura`
 --
 
@@ -631,7 +639,7 @@ CREATE TABLE `ConfiguracaoSistema` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 INSERT INTO ConfiguracaoSistema (DefaultTempThreshold, DefaultNoiseThreshold)
-VALUES (2.5, 5.0);
+VALUES (10, 15);
 
 --
 -- Índices para tabelas despejadas

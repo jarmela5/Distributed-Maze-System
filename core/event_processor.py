@@ -1,22 +1,23 @@
 from core.state_engine import StateEngine
 from core.decision_engine import DecisionEngine
+from core.alert_engine import AlertEngine  
 from persistance.mongo_repository import MongoRepository
+from core.config_manager import ConfigManager
 import json
 from datetime import datetime
 import re
 
-
 class EventProcessor:
 
-    def __init__(self, stateEngine: StateEngine, mongo_repo: MongoRepository, decision_engine: DecisionEngine, temp_config, noise_config):
-        self.state_engine = stateEngine
+    def __init__(self, state_engine: StateEngine, mongo_repo: MongoRepository, 
+                 decision_engine: DecisionEngine, alert_engine: AlertEngine):
+        self.state_engine = state_engine
         self.mongo_repo = mongo_repo
         self.decision_engine = decision_engine
-        self.temp_upper = temp_config["normal"] + temp_config["high_tol"]
-        self.noise_limit = noise_config["normal"] + noise_config["tolerance"]
+        self.alert_engine = alert_engine
+        self.config_manager = ConfigManager()
 
     def process(self, topic, payload):
-
         try:
             data = json.loads(payload)
         except Exception:
@@ -38,33 +39,23 @@ class EventProcessor:
         else:
             print("[WARNING] Unknown topic:", topic)
 
-
     def _normalize_keys(self, data):
-
         normalized = {}
-
         for key, value in data.items():
             clean_key = key.lower()
             clean_key = re.sub(r'[^a-z]', '', clean_key)
             normalized[clean_key] = value
-
         return normalized
 
-
     def _extract_player(self, topic):
-
         try:
             return int(topic.split("_")[-1])
         except:
             return None
 
-
     def _handle_movement(self, data, player):
-
         required_fields = ["marsami", "roomorigin", "roomdestiny", "status"]
-
         if not all(field in data for field in required_fields):
-            print("[MOVEMENT] Missing required fields.")
             return
 
         marsami = data["marsami"]
@@ -72,13 +63,7 @@ class EventProcessor:
         destiny = data["roomdestiny"]
         status = data["status"]
 
-        if not isinstance(marsami, int):
-            return
-
-        if not isinstance(origin, int) or not isinstance(destiny, int):
-            return
-
-        if status not in [0, 1, 2]:
+        if not isinstance(marsami, int) or status not in [0, 1, 2]:
             return
 
         event, changed_rooms = self.state_engine.process_movement(
@@ -89,13 +74,14 @@ class EventProcessor:
         )
 
         if event:
-
             event["player"] = player
-
             if "timestamp" not in event or event["timestamp"] is None:
                 event["timestamp"] = datetime.now()
 
             self.mongo_repo.save_movement(event)
+
+            if event.get("simulation_ended"):
+                self.config_manager.finish_simulation()
 
             if event.get("is_valid") and changed_rooms:
                 self.mongo_repo.save_room_occupancy(
@@ -104,12 +90,11 @@ class EventProcessor:
                     event["timestamp"]
                 )
 
+            # Avalia lógica de pontuação/equilíbrio (Jogo)
             if self.state_engine.game_started:
                 self.decision_engine.evaluate()
 
-
     def _handle_temperature(self, data, player):
-
         if "temperature" not in data:
             return
 
@@ -120,32 +105,19 @@ class EventProcessor:
             return
 
         parsed_time = self._parse_timestamp(timestamp)
-
-        event = self.state_engine.update_temperature(
-            timestamp=parsed_time,
-            temp=value
-        )
-
+        event = self.state_engine.update_temperature(timestamp=parsed_time, temp=value)
+        
         event["player"] = player
-
         self.mongo_repo.save_temperature(event)
 
-        if self.state_engine.game_started:
-            self.decision_engine.evaluate()
-
-        if event.get("is_valid") and value > self.temp_upper:
-            self.mongo_repo.save_alert({
-                "player":  player,
-                "sala":    None,
-                "sensor":  "temperatura",
-                "leitura": value,
-                "tipo":    "TemperaturaAlta",
-                "msg":     f"Temperatura {value} acima do limite {self.temp_upper}"
-            })
-
+        # Se a leitura for válida, passa para o motor de alertas processar níveis e AC
+        if event.get("is_valid"):
+            self.alert_engine.process_temperature(value)
+            
+            if self.state_engine.game_started:
+                self.decision_engine.evaluate(event)
 
     def _handle_sound(self, data, player):
-
         if "sound" not in data:
             return
 
@@ -156,32 +128,19 @@ class EventProcessor:
             return
 
         parsed_time = self._parse_timestamp(timestamp)
-
-        event = self.state_engine.update_sound(
-            timestamp=parsed_time,
-            sound=value
-        )
+        event = self.state_engine.update_sound(timestamp=parsed_time, sound=value)
 
         event["player"] = player
-
         self.mongo_repo.save_sound(event)
 
-        if self.state_engine.game_started:
-            self.decision_engine.evaluate()
+        # Se a leitura for válida, passa para o motor de alertas processar níveis e Portas
+        if event.get("is_valid"):
+            self.alert_engine.process_noise(value)
 
-        if event.get("is_valid") and value > self.noise_limit:
-            self.mongo_repo.save_alert({
-                "player":  player,
-                "sala":    None,
-                "sensor":  "som",
-                "leitura": value,
-                "tipo":    "RuidoAlto",
-                "msg":     f"Ruído {value} acima do limite {self.noise_limit}"
-            })
-
+            if self.state_engine.game_started:
+                self.decision_engine.evaluate()
 
     def _parse_timestamp(self, timestamp):
-
         if not timestamp:
             return None
         try:
