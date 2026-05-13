@@ -1,5 +1,4 @@
 from core.state_engine import StateEngine
-import json
 import time
 import paho.mqtt.client as mqtt
 
@@ -25,7 +24,20 @@ class DecisionEngine:
 
 
     def _publish(self, payload):
-        self._mqtt.publish("pisid_mazeact", json.dumps(payload))
+        parts = []
+
+        for key, value in payload.items():
+            parts.append(f"{key}: {value}")
+
+        message = "{" + ", ".join(parts) + "}"
+
+        result = self._mqtt.publish(
+            "pisid_mazeact",
+            message,
+            qos=1
+        )
+
+        result.wait_for_publish()
 
 
     def evaluate(self, movement_event=None):
@@ -119,8 +131,6 @@ class DecisionEngine:
         })
         
         self._save_trigger_event(room_id)
-        
-        print(f"[TRIGGER] Room {room_id} equilibrium")
 
     def _save_trigger_event(self, room_id):
 

@@ -124,6 +124,15 @@ class ConfigManager:
             "normal": result[0],
             "tolerance": result[1]
         }
+
+    def get_normal_values(self):
+        temp_config = self.get_temperature_config()
+        noise_config = self.get_noise_config()
+
+        return {
+            "normal_temp": float(temp_config["normal"]),
+            "normal_noise": float(noise_config["normal"])
+        }
     
     def finish_simulation(self):
         cursor = self.conn_local.cursor()
