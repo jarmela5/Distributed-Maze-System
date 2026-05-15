@@ -134,19 +134,10 @@ class ConfigManager:
             "normal_noise": float(noise_config["normal"])
         }
     
-    def finish_simulation(self):
-        cursor = self.conn_local.cursor()
-
-        cursor.execute("""
-            UPDATE Simulacao
-            SET Estado = 'Inativo'
-            WHERE Estado = 'Ativo'
-        """)
-
-        self.conn_local.commit()
-
-        cursor.close()
-
+    def finish_simulation(self, mqtt_client, player_id):
+        import json
+        payload = {"type": "simulation_end", "player": player_id}
+        mqtt_client.publish("pisid_migrate_all", json.dumps(payload), qos=1)
         print("[SIMULATION] marcada como Inativa")
 
     def close(self):

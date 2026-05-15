@@ -93,6 +93,11 @@ class MySQLWriter:
             doc = json.loads(msg.payload.decode())
             seq = doc.get("seq")
 
+            # simulation_end não tem seq — tratar separadamente
+            if doc.get("type") == "simulation_end":
+                self._finish_simulation_direct()
+                return
+
             if seq is None:
                 return
 
@@ -138,10 +143,13 @@ class MySQLWriter:
 
             elif event_type == "alert":
                 self._insert_alert(cursor, doc, id_jogo)
+            elif event_type == "simulation_end":
+                self._finish_simulation(cursor)
 
             else:
                 self._publicar_confirmacao(seq, False)
                 return
+            
 
             self.mysql_conn.commit()
             self._publicar_confirmacao(seq, True)
@@ -255,6 +263,27 @@ class MySQLWriter:
         self._mqtt.loop_stop()
         self._mqtt.disconnect()
         self.mysql_conn.close()
+
+    def _finish_simulation(self, cursor):
+        cursor.execute("""
+            UPDATE Simulacao
+            SET Estado = 'Inativo'
+            WHERE Estado = 'Ativo'
+        """)
+        self.simulation_id = None
+        print("[MySQLWriter] Simulação marcada como Inativa")
+
+    def _finish_simulation_direct(self):
+        cursor = self.mysql_conn.cursor()
+        try:
+            cursor.execute("UPDATE Simulacao SET Estado = 'Inativo' WHERE Estado = 'Ativo'")
+            self.mysql_conn.commit()
+            self.simulation_id = None
+            print("[MySQLWriter] Simulação marcada como Inativa")
+        except Exception as e:
+            print(f"[MySQLWriter] Erro ao finalizar simulação: {e}")
+        finally:
+            cursor.close()
 
 #--------- Quando PHP tiver acabado ---------#
 # from datetime import datetime

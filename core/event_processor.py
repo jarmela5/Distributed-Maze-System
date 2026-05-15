@@ -10,12 +10,14 @@ import re
 class EventProcessor:
 
     def __init__(self, state_engine: StateEngine, mongo_repo: MongoRepository, 
-                 decision_engine: DecisionEngine, alert_engine: AlertEngine):
+                 decision_engine: DecisionEngine, alert_engine: AlertEngine, mqtt_client, player_id):
         self.state_engine = state_engine
         self.mongo_repo = mongo_repo
         self.decision_engine = decision_engine
         self.alert_engine = alert_engine
         self.config_manager = ConfigManager()
+        self.mqtt_client = mqtt_client
+        self.player_id = player_id
 
     def process(self, topic, payload):
         try:
@@ -81,7 +83,7 @@ class EventProcessor:
             self.mongo_repo.save_movement(event)
 
             if event.get("simulation_ended"):
-                self.config_manager.finish_simulation()
+                 self.config_manager.finish_simulation(self.mqtt_client, self.player_id)
 
             if event.get("is_valid") and changed_rooms:
                 self.mongo_repo.save_room_occupancy(
