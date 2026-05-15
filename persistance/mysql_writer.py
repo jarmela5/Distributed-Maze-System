@@ -96,7 +96,7 @@ class MySQLWriter:
             event_type = doc.get("type")
 
             if event_type == "simulation_end":
-                cursor = self.conn_local.cursor()
+                cursor = self.mysql_conn.cursor()
                 query = """
                     UPDATE Simulacao 
                     SET Estado = 'Inativa' 
