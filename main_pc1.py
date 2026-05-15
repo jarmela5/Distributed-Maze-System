@@ -59,7 +59,9 @@ def main():
         state_engine=state_engine,
         mongo_repo=mongo_repo,
         decision_engine=decision_engine,
-        alert_engine=alert_engine
+        alert_engine=alert_engine,
+        mqtt_client=common_mqtt,
+        player_id=PLAYER_ID
     )
 
     migration_worker = MigrationWorker(
