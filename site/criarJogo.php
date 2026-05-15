@@ -41,18 +41,18 @@ try {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btn_criar'])) {
 
     $descricao = trim($_POST['descricao']);
-    $temp = !empty($_POST['temp_max']) ? $_POST['temp_max'] : null;
-    $som  = !empty($_POST['som_max'])  ? $_POST['som_max']  : null;
+    #$temp = !empty($_POST['temp_max']) ? $_POST['temp_max'] : null;
+    #$som  = !empty($_POST['som_max'])  ? $_POST['som_max']  : null;
 
     try {
-        $sql = "CALL CriarJogo(:equipa, :desc, NOW(), 'iniciada', :temp_max, :som_max, @p_idJogo)";
+        $sql = "CALL CriarJogo(:equipa, :desc, NOW(), 'Ativo', @p_idJogo)";
 
         $stmt = $pdo->prepare($sql);
 
         $stmt->bindParam(':equipa',   $equipa,    PDO::PARAM_STR);
         $stmt->bindParam(':desc',     $descricao, PDO::PARAM_STR);
-        $stmt->bindParam(':temp_max', $temp,      PDO::PARAM_INT);
-        $stmt->bindParam(':som_max',  $som,       PDO::PARAM_INT);
+        #$stmt->bindParam(':temp_max', $temp,      PDO::PARAM_INT);
+        #$stmt->bindParam(':som_max',  $som,       PDO::PARAM_INT);
 
         $stmt->execute();
 

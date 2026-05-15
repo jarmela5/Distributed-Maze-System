@@ -20,7 +20,7 @@ if (!$pdo) {
 
 // 3. Agora a variável $pdo já existe e podes fazer o prepare
 try {
-    $stmt = $pdo->prepare("SELECT IDSimulacao, Descricao, DataHoraInicio, Estado, is_active, var_temp, var_som
+    $stmt = $pdo->prepare("SELECT IDSimulacao, Descricao, DataHoraInicio, Estado, is_active, OutlierTempThreshold, OutlierNoiseThreshold
                            FROM maze_local.simulacao
                            WHERE IDUtilizador = :IDUtilizador AND is_active=1
                            ORDER BY DataHoraInicio DESC");
@@ -34,18 +34,25 @@ if (isset($_GET['eliminar'])) {
     $id_a_eliminar = $_GET['eliminar'];
 
     try {
-        // Preparamos o update para desativar, garantindo que pertence ao utilizador logado
-        $stmt_del = $pdo->prepare("UPDATE simulacao SET is_active = 0 WHERE IDSimulacao = :id AND IDUtilizador = :user_id");
+
+        // chama a stored procedure
+        $stmt_del = $pdo->prepare("CALL ApagarJogo(:id)");
+
         $stmt_del->execute([
-            'id' => $id_a_eliminar,
-            'user_id' => $IDUtilizador
+            'id' => $id_a_eliminar
         ]);
+
+        // limpa resultados pendentes
+        while ($stmt_del->nextRowset()) {}
 
         // Redireciona para limpar o URL e atualizar a lista
         header("Location: simulacao.php");
         exit();
+
     } catch (PDOException $e) {
+
         die("Erro ao eliminar: " . $e->getMessage());
+
     }
 }
 ?>
@@ -98,8 +105,8 @@ if (isset($_GET['eliminar'])) {
                                 <button class="btn-edit"
                                         data-id="<?php echo $jogo['IDSimulacao']; ?>"
                                         data-desc="<?php echo htmlspecialchars($jogo['Descricao']); ?>"
-                                        data-temp="<?php echo $jogo['var_temp']; ?>"
-                                        data-som="<?php echo $jogo['var_som']; ?>"
+                                        data-temp="<?php echo $jogo['OutlierTempThreshold']; ?>"
+                                        data-som="<?php echo $jogo['OutlierNoiseThreshold']; ?>"
                                         data-estado="<?php echo $jogo['Estado']; ?>">
                                     Editar
                                 </button>
