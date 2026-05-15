@@ -10,14 +10,13 @@ class MySQLWriter:
     TOPIC = "pisid_migrate_all"
     TOPIC_CONFIRM = "pisid_migrate_confirm"
 
-    # 1. CORREÇÃO: Adicionado php_mode=False como argumento padrão
-    def __init__(self, broker, port, php_mode=False):
+    
+    def __init__(self, broker, port,):
         self.mysql_conn = self._conectar_mysql()
         self._running = True
         
-        # 2. CORREÇÃO: Guardar a variável na instância para poder ser lida noutros métodos
-        self.php_mode = php_mode
-        self.simulation_id = None if self.php_mode else self._create_simulation()
+       
+        self.simulation_id = self._create_simulation()
 
         # Buffer ordenado + controlo de duplicados
         self._buffer = []
@@ -32,7 +31,6 @@ class MySQLWriter:
         self._mqtt.on_message = self._on_message
         self._mqtt.on_disconnect = self._on_disconnect
 
-        print(f"[MySQLWriter] CONNECTING TO BROKER (PHP Mode: {self.php_mode})...")
         self._mqtt.connect(broker, port)
         self._mqtt.loop_start()
 
@@ -46,6 +44,7 @@ class MySQLWriter:
         conn.autocommit = False
         return conn
 
+   
     def _create_simulation(self):
         cursor = self.mysql_conn.cursor()
         cursor.execute("SELECT IDSimulacao FROM Simulacao WHERE Estado='Ativo' LIMIT 1")
@@ -64,15 +63,7 @@ class MySQLWriter:
         cursor.close()
         print(f"[MySQLWriter] Nova simulação criada com ID: {simulation_id}")
         return simulation_id
-
-    def _get_active_simulation_php(self):
-        """Procura na BD o ID da simulação ativa aberta pelo PHP."""
-        cursor = self.mysql_conn.cursor()
-        cursor.execute("SELECT IDSimulacao FROM Simulacao WHERE Estado='Ativo' ORDER BY IDSimulacao DESC LIMIT 1")
-        result = cursor.fetchone()
-        cursor.close()
-        return result[0] if result else None
-
+  
     # --- MQTT CALLBACKS ---
 
     def _on_connect(self, client, userdata, flags, rc):
@@ -112,15 +103,7 @@ class MySQLWriter:
                 return
 
             if seq not in self._seen:
-                if self.php_mode:
-                    current_id = self._get_active_simulation_php()
-                    if not current_id:
-                        print(f"[MySQLWriter] Msg seq={seq} descartada. PHP não tem simulações ativas.")
-                        self._publicar_confirmacao(seq, False)
-                        return
-                    doc["_resolved_id"] = current_id  
-                
-                # 3. CORREÇÃO: Removida a duplicação do push que tinhas aqui
+                             
                 heapq.heappush(self._buffer, (seq, doc))
                 self._seen.add(seq)
 
@@ -145,8 +128,7 @@ class MySQLWriter:
             cursor = self.mysql_conn.cursor()
             event_type = doc.get("type")
             
-            # 4. CORREÇÃO: Escolhe dinamicamente entre o ID injetado (PHP) ou o fixo (Python)
-            id_jogo = doc.get("_resolved_id") if self.php_mode else self.simulation_id
+            id_jogo = self.simulation_id
 
             if id_jogo is None and event_type != "simulation_end":
                 print(f"[MySQLWriter WARNING] Mensagem seq={seq} ignorada. Sem ID de simulação válido.")
