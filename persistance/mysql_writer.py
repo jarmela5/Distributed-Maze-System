@@ -95,6 +95,7 @@ class MySQLWriter:
             seq = doc.get("seq")
             event_type = doc.get("type")
 
+            
             if event_type == "simulation_end":
                 cursor = self.mysql_conn.cursor()
                 query = """
@@ -103,10 +104,10 @@ class MySQLWriter:
                     WHERE Estado = 'Ativo'
                 """
                 cursor.execute(query)
-                self.conn_local.commit()
+                self.mysql_conn.commit()
                 cursor.close()
                 print(f"[PC2] Simulação do Player {doc.get('player')} também foi marcada como Inativa localmente.")
-
+            
             if seq is None:
                 return
 
@@ -162,8 +163,6 @@ class MySQLWriter:
                 self._insert_occupancy(cursor, doc, id_jogo)
             elif event_type == "alert":
                 self._insert_alert(cursor, doc, id_jogo)
-            elif event_type == "simulation_end" and not self.php_mode:
-                self._finish_simulation(cursor)
             else:
                 self._publicar_confirmacao(seq, False)
                 return
@@ -236,21 +235,3 @@ class MySQLWriter:
         self._mqtt.loop_stop()
         self._mqtt.disconnect()
         self.mysql_conn.close()
-
-    def _finish_simulation(self, cursor):
-        cursor.execute("UPDATE Simulacao SET Estado = 'Inativo' WHERE Estado = 'Ativo'")
-        self.mysql_conn.commit()
-        self.simulation_id = None
-        print("[MySQLWriter] Simulação marcada como Inativa via Cursor")
-
-    def _finish_simulation_direct(self):
-        cursor = self.mysql_conn.cursor()
-        try:
-            cursor.execute("UPDATE Simulacao SET Estado = 'Inativo' WHERE Estado = 'Ativo'")
-            self.mysql_conn.commit()
-            self.simulation_id = None
-            print("[MySQLWriter] Simulação marcada como Inativa de forma Direta")
-        except Exception as e:
-            print(f"[MySQLWriter] Erro ao finalizar simulação: {e}")
-        finally:
-            cursor.close()
