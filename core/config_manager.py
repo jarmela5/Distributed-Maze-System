@@ -136,9 +136,25 @@ class ConfigManager:
     
     def finish_simulation(self, mqtt_client, player_id):
         import json
+        
+        # 1. Envia o aviso via MQTT para o resto do sistema saber (se necessário)
         payload = {"type": "simulation_end", "player": player_id}
         mqtt_client.publish("pisid_migrate_all", json.dumps(payload), qos=1)
-        print("[SIMULATION] marcada como Inativa")
+        
+        # 2. EXECUTA O UPDATE REAL NA TUA BD LOCAL
+        try:
+            cursor = self.conn_local.cursor()
+            query = """
+                UPDATE Simulacao 
+                SET Estado = 'Inativa' 
+                WHERE Estado = 'Ativo'
+            """
+            cursor.execute(query)
+            self.conn_local.commit() # Extremamente importante para gravar as alterações!
+            cursor.close()
+            print(f"[SIMULATION] Sucesso: Simulação do Player {player_id} alterada para 'Inativa' no MySQL Local.")
+        except Exception as e:
+            print(f"[ERROR] Falha ao atualizar o estado da simulação no MySQL Local: {e}")
 
     def close(self):
         if self.conn_cloud.is_connected():

@@ -84,6 +84,7 @@ class EventProcessor:
 
             if event.get("simulation_ended"):
                  self.config_manager.finish_simulation(self.mqtt_client, self.player_id)
+                 self.state_engine.game_started = False
 
             if event.get("is_valid") and changed_rooms:
                 self.mongo_repo.save_room_occupancy(
