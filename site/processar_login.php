@@ -1,12 +1,12 @@
 <?php
 session_start();
-require_once 'config.php'; /
+require_once 'config.php'; // Garante que este ficheiro só tem a função connectToDatabase
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $inputUser = $_POST['username'];
     $inputPass = $_POST['password'];
 
-
+    // Tenta ligar ao MySQL com os dados do formulário
     $pdo = connectToDatabase($inputUser, $inputPass);
 
     if ($pdo) {
@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($resultado) {
-
+                // Login completo: MySQL aceitou e utilizador existe na tabela
                 $_SESSION['IDUtilizador'] = $resultado['IDUtilizador'];
                 $_SESSION['username'] = $inputUser;
                 $_SESSION['mysql_user'] = $inputUser;
@@ -27,12 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header("Location: dashboard.php");
                 exit();
             } else {
-
+                // MySQL aceitou, mas o nome não existe na tabela 'Utilizador'
                 header("Location: login.php?erro=tabela");
                 exit();
             }
         } catch (PDOException $e) {
-
+            // Erro de SQL (ex: tabela não existe)
             header("Location: login.php?erro=db");
             exit();
         }
