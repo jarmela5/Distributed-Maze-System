@@ -1,5 +1,5 @@
 <?php
-
+// db_auth.php
 
 function connectToDatabase($user, $pass) {
     $host = 'mysql';
