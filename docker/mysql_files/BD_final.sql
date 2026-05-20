@@ -490,7 +490,7 @@ BEGIN
     DECLARE v_username VARCHAR(100);
     DECLARE v_idUtilizador INT;
     DECLARE v_owner INT;
-    DECLARE v_tipo VARCHAR(20);  -- adicionar
+    DECLARE v_tipo VARCHAR(20); 
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -503,7 +503,7 @@ BEGIN
 
     SET v_username = SUBSTRING_INDEX(USER(), '@', 1);
 
-    SELECT IDUtilizador, Tipo  -- adicionar Tipo
+    SELECT IDUtilizador, Tipo  
     INTO v_idUtilizador, v_tipo
     FROM Utilizador
     WHERE Username = v_username
@@ -525,7 +525,7 @@ BEGIN
         SET MESSAGE_TEXT = 'Jogo não existe';
     END IF;
 
-    -- alterar esta condição
+   
     IF v_owner != v_idUtilizador AND v_tipo != 'admin' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Não tens permissão para desativar este jogo';
