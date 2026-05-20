@@ -485,11 +485,12 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EditarUtilizador` (IN `p_Nome` VARCHAR(50),
 
 END$$
 
-CREATE DEFINER=`root`@`%` PROCEDURE `EliminarJogo` (IN `p_idJogo` INT)   BEGIN
-
+CREATE DEFINER=`root`@`%` PROCEDURE `EliminarJogo`(IN `p_idJogo` INT)
+BEGIN
     DECLARE v_username VARCHAR(100);
     DECLARE v_idUtilizador INT;
     DECLARE v_owner INT;
+    DECLARE v_tipo VARCHAR(20); 
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -500,11 +501,10 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EliminarJogo` (IN `p_idJogo` INT)   BEGIN
 
     START TRANSACTION;
 
-    -- obter utilizador atual
     SET v_username = SUBSTRING_INDEX(USER(), '@', 1);
 
-    SELECT IDUtilizador
-    INTO v_idUtilizador
+    SELECT IDUtilizador, Tipo  
+    INTO v_idUtilizador, v_tipo
     FROM Utilizador
     WHERE Username = v_username
     LIMIT 1;
@@ -514,7 +514,6 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EliminarJogo` (IN `p_idJogo` INT)   BEGIN
         SET MESSAGE_TEXT = 'Utilizador inválido';
     END IF;
 
-    -- obter dono da simulação
     SELECT IDUtilizador
     INTO v_owner
     FROM Simulacao
@@ -526,19 +525,17 @@ CREATE DEFINER=`root`@`%` PROCEDURE `EliminarJogo` (IN `p_idJogo` INT)   BEGIN
         SET MESSAGE_TEXT = 'Jogo não existe';
     END IF;
 
-    -- verificar se o jogo pertence ao utilizador
-    IF v_owner != v_idUtilizador THEN
+   
+    IF v_owner != v_idUtilizador AND v_tipo != 'admin' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Não tens permissão para desativar este jogo';
     END IF;
 
-    -- desativar jogo
     UPDATE Simulacao
     SET is_active = 0
     WHERE IDSimulacao = p_idJogo;
 
     COMMIT;
-
 END$$
 
 DELIMITER ;
